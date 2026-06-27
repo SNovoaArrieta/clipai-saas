@@ -1,0 +1,145 @@
+warning: in the working copy of 'docs/ARCHITECTURE.md', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md[m
+[1mindex e69de29..ea63cc7 100644[m
+[1m--- a/docs/ARCHITECTURE.md[m
+[1m+++ b/docs/ARCHITECTURE.md[m
+[36m@@ -0,0 +1,595 @@[m
+[32m+[m[32m# ClipAI SaaS — Architecture Foundation[m
+[32m+[m
+[32m+[m[32m## 1. Estado y propósito del documento[m
+[32m+[m
+[32m+[m[32m| Campo | Valor |[m
+[32m+[m[32m| --- | --- |[m
+[32m+[m[32m| Documento | 02 — Architecture Foundation |[m
+[32m+[m[32m| Versión | 0.1 |[m
+[32m+[m[32m| Estado | Aprobado como arquitectura objetivo inicial |[m
+[32m+[m[32m| Estado de implementación | No implementada |[m
+[32m+[m[32m| Fase | Fase 0 — Foundation |[m
+[32m+[m[32m| Última actualización | 2026-06-26 |[m
+[32m+[m
+[32m+[m[32mEste documento define la arquitectura objetivo inicial del MVP de ClipAI y los[m
+[32m+[m[32mlímites técnicos que deberán respetarse cuando se autorice su construcción. No[m
+[32m+[m[32mautoriza por sí mismo el desarrollo del SaaS completo, no constituye una[m
+[32m+[m[32mespecificación de API ni afirma que los componentes descritos estén[m
+[32m+[m[32mimplementados.[m
+[32m+[m
+[32m+[m[32mLa arquitectura se apoya en el Product Charter, el working agreement del[m
+[32m+[m[32mrepositorio y las decisiones aprobadas para la Fase 0. El prototipo ubicado en[m
+[32m+[m[32m`legacy/` se utiliza únicamente como referencia de producto y presentación.[m
+[32m+[m[32mNo es una base de código de producción ni una fuente de decisiones técnicas.[m
+[32m+[m
+[32m+[m[32mEn este documento:[m
+[32m+[m
+[32m+[m[32m- **Aprobado** identifica una dirección que forma parte de la arquitectura[m
+[32m+[m[32m  objetivo inicial.[m
+[32m+[m[32m- **Pendiente** identifica una decisión que todavía requiere validación o una[m
+[32m+[m[32m  elección posterior.[m
+[32m+[m[32m- **Estado actual** describe únicamente lo que existe hoy en el repositorio.[m
+[32m+[m
+[32m+[m[32mLos nombres de carpetas, módulos, entidades, estados e interfaces se mantienen[m
+[32m+[m[32men inglés aunque la documentación esté escrita en español.[m
+[32m+[m
+[32m+[m[32m## 2. Principios arquitectónicos[m
+[32m+[m
+[32m+[m[32m1. **Monolito modular.** El frontend y el backend tendrán despliegues[m
+[32m+[m[32m   diferenciados, pero el dominio del backend vivirá en una sola base de código,[m
+[32m+[m[32m   una sola unidad de release y una base de datos compartida. Un proceso worker[m
+[32m+[m[32m   del mismo backend no constituye un microservicio.[m
+[32m+[m[32m2. **Simplicidad operativa.** La arquitectura deberá poder ser construida,[m
+[32m+[m[32m   entendida y operada por dos fundadores. Se preferirán componentes conocidos y[m
+[32m+[m[32m   pocas piezas desplegables.[m
+[32m+[m[32m3. **Backend autoritativo.** Autorización, reglas de negocio, consumo, acceso a[m
+[32m+[m[32m   datos, llamadas a proveedores y validación de resultados pertenecerán al[m
+[32m+[m[32m   servidor. La validación del frontend será solo una ayuda de experiencia.[m
+[32m+[m[32m4. **Procesamiento asíncrono durable.** La adquisición de transcript y el[m
+[32m+[m[32m   análisis con IA no mantendrán abierta una petición HTTP. Su progreso quedará[m
+[32m+[m[32m   representado mediante estado persistido.[m
+[32m+[m[32m5. **PostgreSQL como system of record.** El estado de negocio, procesamiento y[m
+[32m+[m[32m   uso deberá poder reconstruirse desde PostgreSQL. Un proveedor externo no será[m
+[32m+[m[32m   la fuente autoritativa del dominio.[m
+[32m+[m[32m6. **Límites de proveedor estrechos.** Se aislarán autenticación, transcripción,[m
+[32m+[m[32m   IA, billing y storage detrás de adaptadores orientados a la capacidad. No se[m
+[32m+[m[32m   construirá un framework genérico de plugins.[m
+[32m+[m[32m7. **Aislamiento por Workspace.** Los recursos privados se asociarán a un[m
+[32m+[m[32m   `Workspace`, incluso cuando el MVP solo permita un workspace personal por[m
+[32m+[m[32m   usuario.[m
+[32m+[m[32m8. **Evolución basada en evidencia.** Escalado, nuevas piezas de infraestructura[m
+[32m+[m[32m   y extracción de servicios ocurrirán solo ante límites medidos, no por[m
+[32m+[m[32m   anticipación.[m
+[32m+[m
+[32m+[m[32m## 3. Contexto del sistema[m
+[32m+[m
+[32m+[m[32mEl actor principal es una persona autenticada que trabaja con contenido largo[m
+[32m+[m[32mpropio o autorizado. En el MVP, esa persona tendrá un `Workspace` personal,[m
+[32m+[m[32mcreará proyectos, enviará una fuente soportada, seguirá el procesamiento y[m
+[32m+[m[32mconsultará recomendaciones estratégicas.[m
+[32m+[m
+[32m+[m[32mClipAI recibirá referencias o entradas autorizadas, obtendrá una transcripción[m
+[32m+[m[32mtemporizada por un mecanismo permitido, validará sus segmentos y generará un[m
+[32m+[m[32mresultado estructurado. El producto entregará recomendaciones editoriales con[m
+[32m+[m[32mrangos temporales verificables; no cortará, renderizará ni entregará archivos de[m
+[32m+[m[32mvideo editados.[m
+[32m+[m
+[32m+[m[32mEl sistema dependerá de capacidades externas para autenticación,[m
+[32m+[m[32mtranscripción, IA, billing y, si los tipos de entrada lo requieren, storage.[m
+[32m+[m[32mEsos sistemas se considerarán fuera del límite de confianza de ClipAI. El[m
+[32m+[m[32mbackend será responsable de autenticar sus respuestas, normalizar errores y[m
+[32m+[m[32mvalidar cualquier dato recibido.[m
+[32m+[m
+[32m+[m[32m## 4. Diagrama de componentes de alto nivel[m
+[32m+[m
+[32m+[m[32m```mermaid[m
+[32m+[m[32mflowchart LR[m
+[32m+[m[32m    User["Usuario autenticado"][m
+[32m+[m
+[32m+[m[32m    subgraph ClipAI["ClipAI SaaS"][m
+[32m+[m[32m        Frontend["Frontend<br/>React + Vite + TypeScript"][m
+[32m+[m
+[32m+[m[32m        subgraph Monolith["Backend — modular monolith"][m
+[32m+[m[32m            API["HTTP API<br/>Node.js + Express + TypeScript"][m
+[32m+[m[32m            Modules["Domain modules"][m
+[32m+[m[32m            Queue["PostgreSQL-backed job library<br/>internal queue jobs"][m
+[32m+[m[32m            Worker["Async worker<br/>same codebase and release"][m
+[32m+[m[32m        end[m
+[32m+[m
+[32m+[m[32m        DB[("PostgreSQL<br/>system of record")][m
+[32m+[m
+[32m+[m[32m        Frontend <-->|"HTTPS + status polling"| API[m
+[32m+[m[32m        API --> Modules[m
+[32m+[m[32m        API -->|"enqueue internal message"| Queue[m
+[32m+[m[32m        Queue -->|"deliver and retry"| Worker[m
+[32m+[m[32m        Worker --> Modules[m
+[32m+[m[32m        API -->|"persist ProcessingJob"| DB[m
+[32m+[m[32m        Queue <--> DB[m
+[32m+[m[32m        Worker -->|"update ProcessingJob"| DB[m
+[32m+[m[32m        Modules <--> DB[m
+[32m+[m[32m    end[m
+[32m+[m
+[32m+[m[32m    subgraph Providers["External provider boundaries"][m
+[32m+[m[32m        Auth["Authentication"][m
+[32m+[m[32m        Transcription["Transcription"][m
+[32m+[m[32m        AI["AI analysis"][m
+[32m+[m[32m        Billing["Billing"][m
+[32m+[m[32m        Storage["Storage"][m
+[32m+[m[32m    end[m
+[32m+[m
+[32m+[m[32m    User --> Frontend[m
+[32m+[m[32m    API --> Auth[m
+[32m+[m[32m    Modules --> Billing[m
+[32m+[m[32m    Modules --> Storage[m
+[32m+[m[32m    Worker --> Transcription[m
+[32m+[m[32m    Worker --> AI[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mNo existirá una conexión directa desde el navegador hacia proveedores de IA o[m
+[32m+[m[32mtranscripción. El diagrama muestra límites lógicos, no proveedores elegidos ni[m
+[32m+[m[32mrecursos de infraestructura ya creados.[m
+[32m+[m
+[32m+[m[32m## 5. Estructura del repositorio[m
+[32m+[m
+[32m+[m[32mLa estructura raíz aprobada es:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mclient/   # Aplicación frontend[m
+[32m+[m[32mserver/   # API y worker del backend[m
+[32m+[m
