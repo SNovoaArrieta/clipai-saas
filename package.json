@@ -1,0 +1,32 @@
+{
+  "name": "clipai-saas",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repository foundation for the ClipAI SaaS.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.15.0 <23",
+    "npm": ">=10.9.2 <11"
+  },
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.6.0",
+    "prettier": "3.8.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.62.0"
+  }
+}

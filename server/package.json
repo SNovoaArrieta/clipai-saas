@@ -1,0 +1,11 @@
+{
+  "name": "@clipai/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reserved workspace for the future ClipAI backend.",
+  "scripts": {
+    "typecheck": "tsc --version && node -e \"console.log('[SKIPPED] Server typecheck is not configured: the Express application has not been created yet.')\"",
+    "test": "node -e \"console.log('[SKIPPED] Server tests are not configured: no application tests were run.')\"",
+    "build": "node -e \"console.log('[SKIPPED] Server build is not configured: the application has not been created yet.')\""
+  }
+}
