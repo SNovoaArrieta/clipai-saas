@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | 01 — Product Charter |
-| Versión | 0.1 |
+| Versión | 0.3 |
 | Estado | Aprobado como hipótesis inicial |
 | Fase | Fase 0 — Foundation |
 | Product Owner | Sofía |
-| Última actualización | 2026-06-26 |
+| Última actualización | 2026-07-13 |
 
 Este documento propone la dirección inicial del producto y los límites de su
 MVP. No autoriza el desarrollo del SaaS completo ni afirma que las capacidades
@@ -34,13 +34,51 @@ La misión inicial es entregar recomendaciones priorizadas, verificables y
 útiles para que cada usuario pueda tomar mejores decisiones editoriales y
 continuar el trabajo en sus herramientas habituales de edición.
 
-## 4. ICP primario y secundario
+## Función estratégica para la empresa
 
-### ICP primario
+ClipAI será el primer software de la empresa, su producto insignia y su primer
+activo tecnológico propio. Esta función añade una dimensión empresarial a la
+medición, pero no cambia el alcance del MVP ni convierte el producto en una
+simple demostración técnica. ClipAI debe resolver primero un problema real para
+personas usuarias.
+
+### Éxito del producto
+
+El producto tendrá evidencia inicial de éxito si:
+
+- resuelve un problema frecuente y suficientemente importante;
+- reduce el tiempo de revisión frente al proceso manual;
+- genera resultados útiles, verificables y accionables;
+- consigue uso repetido;
+- obtiene evidencia de disposición de pago; y
+- opera con costes y tiempos sostenibles.
+
+### Éxito para la empresa
+
+ClipAI tendrá valor estratégico para la empresa si permite:
+
+- crear el primer activo tecnológico demostrable;
+- producir un caso de éxito documentado con consentimiento;
+- demostrar capacidad real en software, automatización e IA;
+- facilitar conversaciones con clientes potenciales mediante una demostración
+  comercial segura y repetible;
+- generar aprendizajes reutilizables para futuros proyectos y productos;
+- fortalecer una marca independiente de la imagen personal de la fundadora; y
+- crear una base técnica reutilizable sin convertir ClipAI prematuramente en
+  una plataforma genérica.
+
+Estas dimensiones se complementan, pero no son intercambiables. Una buena demo
+sin usuarios beneficiados no valida el producto; un producto útil que además
+documenta procesos y resultados puede fortalecer de forma legítima a la
+empresa.
+
+## 4. Hipótesis inicial de ICP pendiente de validación
+
+### Hipótesis de segmento prioritario
 
 Freelancers y agencias pequeñas de contenido que gestionan videos de formato
 largo para podcasters, coaches, educadores y marcas personales de habla
-española.
+española constituyen la hipótesis inicial, no un mercado confirmado.
 
 Características esperadas:
 
@@ -51,13 +89,17 @@ Características esperadas:
 - Tienen equipos pequeños, tiempo limitado y procesos poco automatizados.
 - Poseen el contenido procesado o cuentan con autorización para utilizarlo.
 
-### ICP secundario
+### Segmentos que deben compararse
 
-Podcasters y educadores independientes de habla española que producen contenido
-largo y administran directamente su reutilización en formatos cortos.
+La investigación deberá comparar, como mínimo, creadores independientes,
+freelancers de contenido, agencias pequeñas, marcas y negocios que reutilizan
+contenido audiovisual, y equipos que producen contenido educativo o comercial.
+Deberá evaluar frecuencia, severidad, proceso actual, repetición e intención de
+pago para escoger un primer segmento prioritario.
 
-Este grupo comparte el problema principal, pero suele tener menor volumen,
-menos división de roles y un flujo de aprobación más simple que el ICP primario.
+Esta comparación no amplía el MVP ni autoriza diseñar simultáneamente para todos
+los segmentos. El alcance seguirá siendo un solo flujo vertical y la evidencia
+determinará qué grupo obtiene mayor valor.
 
 ## 5. Jobs to be done
 
@@ -140,13 +182,13 @@ Principios iniciales de producto:
   de terceros aplicables.
 - El producto podrá rechazar fuentes no soportadas o casos en los que no pueda
   obtenerse el material necesario por medios permitidos.
-- Una URL soportada se procesará solo mediante mecanismos de acceso definidos y
-  aceptados para el producto.
+- El primer MVP aceptará únicamente uploads directos MP4, MOV, MP3 y WAV; las
+  fuentes URL requerirán una fase y ADR posteriores.
 - La estrategia principal de transcripción no dependerá de scraping no
   autorizado ni de buscar copias de transcripciones en sitios de terceros.
-- Si una URL soportada no proporciona una transcripción utilizable, el flujo
-  podrá solicitar un archivo de video, un archivo de audio o una transcripción
-  temporizada proporcionada por el usuario.
+- El backend no buscará copias alternativas ni hará fetch de URLs cuando un
+  archivo no pueda transcribirse; comunicará un fallo seguro o permitirá crear
+  un nuevo `Source` soportado.
 - La adquisición, conservación y eliminación de archivos y transcripciones se
   limitarán a políticas que deberán definirse antes del lanzamiento.
 
@@ -156,19 +198,19 @@ definitivos requerirán revisión separada antes de operar el servicio.
 
 ## 10. Alcance del MVP
 
-Las siguientes son capacidades **planificadas para un MVP futuro**. No están
-implementadas ni aprobadas para desarrollo por este documento:
+Las siguientes capacidades definen el **alcance autorizado del primer MVP**.
+No están implementadas y su construcción solo podrá comenzar cuando se supere
+el gate de salida de Fase 0 y exista autorización explícita de la Product Owner:
 
 1. **Cuenta y workspace personal:** registro, acceso y un espacio privado por
    usuario.
 2. **Creación de proyectos:** organización de cada fuente y su análisis dentro
    de un proyecto.
-3. **Envío de una fuente autorizada:** recepción de una URL soportada o de una
-   entrada alternativa permitida.
+3. **Envío de una fuente autorizada:** upload directo de MP4, MOV, MP3 o WAV.
 4. **Estado de procesamiento asíncrono:** comunicación clara de estados como
    pendiente, procesando, completado y fallido.
-5. **Obtención de transcripción:** adquisición por un mecanismo soportado o uso
-   de una transcripción proporcionada por el usuario.
+5. **Obtención de transcripción:** procesamiento del archivo mediante un adapter
+   de speech-to-text, inicialmente con OpenAI y modelo configurable.
 6. **Resumen y tema principal:** síntesis del contenido analizado.
 7. **Recomendaciones priorizadas:** lista ordenada de momentos candidatos para
    contenido corto.
@@ -181,6 +223,8 @@ implementadas ni aprobadas para desarrollo por este documento:
     usuario.
 11. **Seguimiento de uso o créditos:** registro comprensible del consumo asociado
     a los análisis.
+12. **Outputs derivados:** puntos clave, ideas de títulos, hooks, llamados a la
+    acción, hashtags e ideas de publicaciones, validados antes de persistirse.
 
 El MVP se limitará a demostrar que el análisis y las recomendaciones ahorran
 tiempo y son suficientemente confiables. Su alcance debe poder ser construido y
@@ -201,6 +245,10 @@ El MVP no incluirá:
 - Garantías de viralidad o predicciones presentadas como certezas.
 - Una estrategia de contenido completamente automatizada.
 - Un editor de video de propósito general.
+- Descarga desde YouTube o URLs de Instagram y TikTok.
+- Scraping, importación automática desde redes o integraciones con drives.
+- Grabación directa desde el navegador.
+- Billing, pagos, planes y suscripciones.
 
 Estos límites evitan que la automatización posterior oculte la pregunta central:
 si las recomendaciones por sí mismas son útiles, verificables y valiosas.
@@ -209,11 +257,10 @@ si las recomendaciones por sí mismas son útiles, verificables y valiosas.
 
 1. El usuario crea su cuenta y accede a su workspace personal.
 2. Crea un proyecto para una pieza de contenido largo.
-3. Envía una fuente soportada y confirma que es propietario del contenido o que
+3. Sube un MP4, MOV, MP3 o WAV y confirma que es propietario del contenido o que
    tiene autorización para procesarlo.
-4. Si la URL no ofrece una transcripción utilizable por un mecanismo soportado,
-   el producto solicita un archivo de video, audio o una transcripción
-   temporizada.
+4. El producto guarda el archivo de forma privada, valida el tipo y los límites,
+   y crea un job de procesamiento idempotente.
 5. El proyecto muestra el estado del procesamiento asíncrono y comunica con
    claridad cualquier fallo o acción requerida.
 6. Al finalizar, el usuario revisa el resumen, el tema principal y las
@@ -230,32 +277,32 @@ si las recomendaciones por sí mismas son útiles, verificables y valiosas.
 Los siguientes puntos son **supuestos pendientes de validación**, no hechos
 confirmados:
 
-- El ICP primario revisa contenido largo con suficiente frecuencia para que el
-  ahorro de tiempo sea valioso y pagable.
+- Alguno de los segmentos candidatos revisa contenido largo con suficiente
+  frecuencia para que el ahorro de tiempo sea valioso y pagable.
 - Una recomendación estratégica puede aportar valor antes de automatizar la
   edición del video.
 - Los usuarios confiarán más en el análisis cuando cada recomendación sea
   verificable mediante timestamps reales y una explicación concreta.
 - Los freelancers y agencias pequeñas necesitan estandarizar sus entregas sin
   adoptar herramientas complejas de colaboración empresarial.
-- Existe una combinación viable de fuentes autorizadas, archivos o
-  transcripciones proporcionadas por el usuario para alimentar el MVP.
+- El upload directo de archivos autorizados representa una entrada viable y
+  suficientemente cómoda para alimentar el primer MVP.
 - Es posible alcanzar una calidad útil con costes y tiempos de procesamiento
   compatibles con un producto comercial operado por dos fundadores.
 - TikTok, Instagram Reels y YouTube Shorts cubren las necesidades iniciales más
-  relevantes del ICP.
+  relevantes del segmento que la investigación priorice.
 
 ## 14. Hipótesis de validación
 
 | Hipótesis | Señal inicial de validación propuesta |
 | --- | --- |
-| El problema es frecuente y costoso para el ICP primario. | Las entrevistas confirman un flujo recurrente de revisión manual y un coste claro en tiempo o dinero. |
+| El problema es frecuente y costoso para al menos un segmento candidato. | Las entrevistas comparativas permiten escoger un segmento con flujo recurrente y coste claro en tiempo o dinero. |
 | Las recomendaciones reducen trabajo real. | Las pruebas comparativas muestran al menos 50 % menos tiempo de revisión frente al proceso manual. |
 | El resultado es accionable. | Al menos 70 % de los análisis válidos produce una recomendación que el usuario considera utilizable. |
 | Los timestamps generan confianza. | Al menos 95 % de las recomendaciones revisadas corresponde correctamente con el segmento temporizado indicado. |
 | El flujo soportado es suficientemente confiable. | Al menos 90 % de las entradas válidas y soportadas completa el análisis. |
 | El valor no termina en la primera prueba. | Al menos 60 % de los usuarios piloto analiza otro proyecto durante el periodo de validación. |
-| Existe intención de pago. | Usuarios del ICP aceptan probar una oferta pagada o expresar un compromiso verificable ante una propuesta concreta. |
+| Existe intención de pago. | Personas del segmento priorizado aceptan probar una oferta pagada o expresar un compromiso verificable ante una propuesta concreta. |
 
 Estos umbrales son objetivos preliminares de aprendizaje. Deberán revisarse con
 datos reales y no representan compromisos comerciales ni garantías de
@@ -300,8 +347,8 @@ resultado del procesamiento para evitar conclusiones engañosas.
 La dimensión de producto de la Fase 0 podrá considerarse completada cuando:
 
 - Sofía haya revisado y aprobado este charter o una versión posterior.
-- La investigación con el ICP primario aporte evidencia sobre la frecuencia,
-  severidad y coste del problema.
+- La investigación comparativa con los segmentos candidatos permita escoger un
+  segmento prioritario y aporte evidencia sobre frecuencia, severidad y coste.
 - Se haya documentado el flujo actual del usuario y una línea base de tiempo de
   revisión manual.
 - Exista una rúbrica de calidad para evaluar recomendaciones, contexto,
@@ -325,10 +372,7 @@ Las siguientes decisiones permanecen **sin resolver** y deberán documentarse
 cuando exista evidencia suficiente:
 
 - Nombre definitivo, identidad y posicionamiento comercial del producto.
-- Primer tipo de fuente soportada y mecanismos permitidos para obtener su
-  transcripción.
-- Formatos, tamaños, duraciones y límites para archivos de video, audio y
-  transcripciones proporcionadas por usuarios.
+- Tamaños y duraciones máximas para MP4, MOV, MP3 y WAV.
 - Idiomas, países y variantes del español que se validarán primero.
 - Número y duración esperada de las recomendaciones por análisis.
 - Criterios exactos de priorización y forma de comunicar confianza o calidad sin
@@ -341,4 +385,48 @@ cuando exista evidencia suficiente:
 - Objetivos aceptables de latencia, coste variable y margen por análisis.
 - Herramientas y métodos para recoger feedback sobre recomendaciones aceptadas,
   rechazadas o modificadas.
-- Condiciones exactas que autorizarán el paso de Fase 0 a construcción del MVP.
+- Evidencia final necesaria para aprobar cada punto pendiente de la checklist de
+  salida de Fase 0.
+
+## 18. Flujo vertical y estados visibles aprobados
+
+El flujo autorizado es:
+
+`User → Workspace → Project → File Upload → ProcessingJob → Transcript →
+Analysis → Generated Outputs`.
+
+`Generated Outputs` es una categoría de producto, no una entidad nueva. El
+resumen, tema y puntos clave pertenecen al `Analysis`; las ideas editoriales
+temporizadas se representan mediante `ClipRecommendation`. El schema podrá
+incorporar títulos, hooks, CTA, hashtags e ideas de publicaciones sin duplicar
+el agregado, siempre que cada campo sea validado y versionado.
+
+La experiencia mostrará como mínimo `pending`, `uploaded`, `queued`,
+`processing`, `completed`, `failed` y `cancelled`. Son etapas derivadas del
+flujo completo: `pending` y `uploaded` describen el upload/`Source`; desde
+`queued`, los estados pertenecen a `ProcessingJob`. No forman un enum único ni
+se duplican en `Project`.
+
+## 19. Checklist verificable de salida de Fase 0
+
+| Criterio aprobado en la sección 16 | Evidencia al 2026-07-13 | Estado |
+| --- | --- | --- |
+| Charter revisado por Sofía | Decisiones de alcance entregadas por la Product Owner y registradas en esta versión | `Met` |
+| Función estratégica para la empresa | Posicionamiento de producto fundador, demostración y aprendizaje documentado en este charter, Founder Book y roadmap | `Met` |
+| Evidencia sobre frecuencia, severidad y coste del problema | No se adjuntaron entrevistas ni síntesis de investigación | `Pending` |
+| Flujo actual y línea base manual | El flujo futuro está definido; falta documentar el proceso actual y medir su tiempo | `Pending` |
+| Rúbrica de calidad | No existe una rúbrica versionada para utilidad, contexto y timestamps | `Pending` |
+| Ejemplos representativos autorizados | No existe evidencia registrada de la prueba y sus resultados | `Pending` |
+| Estrategia viable de transcripción sin scraping | Upload directo y OpenAI mediante adapter están aprobados; falta validar límites, calidad, coste y privacidad | `Partially met` |
+| Límites, non-goals y recorrido del MVP | Secciones 10 a 12 y ADR-018 a ADR-027 | `Met` |
+| Revisión preliminar de coste, latencia, privacidad y lifecycle | Riesgos están identificados; faltan evaluación de provider, retención y eliminación | `Pending` |
+| Umbrales ajustados con evidencia | Existen objetivos preliminares en secciones 14 y 15, sin ajuste empírico | `Pending` |
+| Arquitectura y estándares técnicos aprobados | Architecture Foundation, ADRs y Development Guide | `Met` |
+
+## 20. Conclusión del gate
+
+La Fase 0 **no puede cerrarse todavía**. Cuatro criterios están cumplidos, uno
+está parcialmente cumplido y seis requieren evidencia adicional. En
+consecuencia, la Fase 1 **no está autorizada para construcción**. Completar esta
+documentación no permite crear aplicaciones hasta que los puntos pendientes
+sean aportados, revisados y aprobados explícitamente por Sofía.

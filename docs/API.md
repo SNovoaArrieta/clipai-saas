@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `05 — API Foundation` |
-| Versión | `0.1` |
+| Versión | `0.2` |
 | Estado | `Approved as initial API design` |
 | Estado de implementación | `Not implemented` |
 | Fase | Fase 0 — Foundation |
-| Última actualización | 2026-06-27 |
+| Última actualización | 2026-07-13 |
 
 Este documento define el diseño inicial de la API HTTP que el frontend de
 ClipAI podrá consumir cuando se autorice la construcción del MVP. Establece
@@ -80,9 +80,9 @@ de diseño revisable durante Fase 0, no un artefacto ejecutable.
 ## 4. Autenticación y contexto de workspace
 
 Todos los endpoints bajo `/api/v1` son privados y requieren una sesión válida,
-incluido `GET /api/v1/me`. El proveedor, transporte y lifecycle de sesión
-permanecen pendientes; por ello los ejemplos omiten deliberadamente una
-credencial concreta.
+incluido `GET /api/v1/me`. Supabase Auth es el proveedor inicial aprobado; el
+transporte y lifecycle de sesión permanecen pendientes, por lo que los ejemplos
+omiten deliberadamente una credencial concreta.
 
 Para cada request privado, el backend futuro deberá:
 
@@ -394,7 +394,7 @@ archive.
 
 | Estado | Método y ruta | Auth | Request | Response | Success |
 | --- | --- | --- | --- | --- | --- |
-| `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType, sourceReference }` + `Idempotency-Key` | Source | `201` |
+| `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType: "upload", uploadHandle }` + `Idempotency-Key` | Source | `201` |
 | `Draft / Not implemented` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/activate` | Required | `{}` | Project y Source | `200` |
@@ -402,7 +402,9 @@ archive.
 Source expone `id`, `projectId`, `sourceType`, `safeReference`, `state`,
 `isActive`, `durationMs`, `createdAt` y `updatedAt`. `safeReference` es una
 representación apta para UI; no es una signed URL durable, una ruta interna ni
-un payload de provider. Los tipos soportados permanecen pendientes. Los
+un payload de provider. `upload` es el primer tipo aprobado, limitado a MP4,
+MOV, MP3 y WAV; `uploadHandle` es temporal, opaco, emitido server-side y no es
+una object key elegida por el cliente. Los
 estados conceptuales son `submitted`, `validating`, `accepted` y `rejected`.
 `awaiting_input` pertenece exclusivamente a ProcessingJob. Una
 Source puede permanecer `accepted` mientras su ProcessingJob cambia a
@@ -491,6 +493,12 @@ ClipRecommendation expone `id`, `analysisId`, `rank`, `startMs`, `endMs`,
 presentación son `tiktok`, `instagram_reels` y `youtube_shorts`. `rank` expresa
 prioridad editorial, no probabilidad ni garantía de viralidad.
 
+El primer MVP también podrá exponer `keyPoints` en `Analysis` y
+`callToAction`, `hashtags` y `derivedPostIdeas` en cada recomendación. Estos
+campos siguen `Draft / Not implemented`; sus límites y schema final deberán
+versionarse y validarse server-side antes de incorporarlos a los ejemplos
+normativos. `Generated Outputs` no es un recurso API ni una entidad adicional.
+
 ### Usage
 
 | Estado | Método y ruta | Auth | Request | Response | Success |
@@ -578,7 +586,10 @@ No se crea una fuente, job, reserva ni queue message.
 
 ### 14.2 Añadir, attestar y activar una source
 
-`sourceType = url` es ilustrativo; no aprueba todavía ese tipo como soportado.
+El ejemplo usa el único tipo aprobado para el primer MVP. La creación de la
+intención de upload y el transporte al storage requieren un contrato separado
+antes de implementación; `uploadHandle` representa esa capacidad temporal sin
+exponer una signed URL ni una object key.
 
 ```http
 POST /api/v1/projects/proj_01JYV8H42T5XQ9R6B3N7D1KMWC/sources HTTP/1.1
@@ -586,8 +597,8 @@ Content-Type: application/json
 Idempotency-Key: create-source:01JYV8M1D4P7Q2G5X9K3T6RNWB
 
 {
-  "sourceType": "url",
-  "sourceReference": "https://video.example/content/episode-42"
+  "sourceType": "upload",
+  "uploadHandle": "uph_01JYV8M0Q2K6R4T9P7N3X5CWBG"
 }
 ```
 
@@ -603,8 +614,8 @@ Content-Type: application/json; charset=utf-8
   "data": {
     "id": "src_01JYV8P8C6W4Z2N9Q5T7M3HRGK",
     "projectId": "proj_01JYV8H42T5XQ9R6B3N7D1KMWC",
-    "sourceType": "url",
-    "safeReference": "video.example/…/episode-42",
+    "sourceType": "upload",
+    "safeReference": "episode-42.mp4",
     "state": "submitted",
     "isActive": false,
     "durationMs": null,
@@ -676,8 +687,8 @@ Content-Type: application/json
     "source": {
       "id": "src_01JYV8P8C6W4Z2N9Q5T7M3HRGK",
       "projectId": "proj_01JYV8H42T5XQ9R6B3N7D1KMWC",
-      "sourceType": "url",
-      "safeReference": "video.example/…/episode-42",
+      "sourceType": "upload",
+      "safeReference": "episode-42.mp4",
       "state": "accepted",
       "isActive": true,
       "durationMs": 3725000,
@@ -1375,10 +1386,10 @@ después de contar con autorización, tests, seguridad y revisión del contrato.
 Las siguientes decisiones permanecen abiertas y no deben inferirse de los
 ejemplos:
 
-1. Authentication provider, transporte de sesión, lifecycle, recuperación y
-   controles CSRF/CORS asociados.
-2. Tipos de Source soportados, formatos, protocolos, tamaños, duración,
-   idiomas, upload flow y mecanismos permitidos de acceso.
+1. Transporte de sesión con Supabase Auth, lifecycle, recuperación y controles
+   CSRF/CORS asociados.
+2. Contrato de intención/finalización de upload, tamaños, duración, idiomas,
+   expiración de handles y verificación de MP4, MOV, MP3 y WAV.
 3. Texto legal, `statementVersion`, valores de `authorizationBasis`, revocación
    y evidencia necesaria para OwnershipAttestation.
 4. Longitudes máximas, límites exactos de body y reglas de normalización de
@@ -1407,4 +1418,7 @@ los success/error envelopes, la inmutabilidad de Source por ProcessingJob, la
 idempotencia del inicio de análisis, el polling inicial ni la validez de un
 Analysis completado con cero recomendaciones. Tampoco están abiertas la regla
 de un solo ProcessingJob de análisis no terminal por Project ni la obligación
-de rechazar el archive mientras exista ese job.
+de rechazar el archive mientras exista ese job. Para el primer MVP tampoco
+están abiertos el upload como `Source`, Supabase Auth, la interfaz de storage
+compatible con S3 ni OpenAI como proveedor inicial detrás de adapters. Todos
+siguen `Not implemented`.

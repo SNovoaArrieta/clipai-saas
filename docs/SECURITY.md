@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `06 — Security Foundation` |
-| Versión | `0.1` |
+| Versión | `0.2` |
 | Estado | `Approved as initial security baseline` |
 | Estado de implementación | `Not implemented` |
 | Fase | Fase 0 — Foundation |
-| Última actualización | 2026-06-27 |
+| Última actualización | 2026-07-13 |
 
 Este documento define la línea base de seguridad objetivo para el MVP de
 ClipAI. Establece activos, límites de confianza, amenazas, controles mínimos y
@@ -236,9 +236,11 @@ verificación antes de su release.
 
 ## 7. Identidad, autenticación y sesiones
 
-El authentication provider y el transporte de sesión siguen `Deferred`. Su
-selección deberá comparar seguridad, experiencia, recuperación, lifecycle,
-integración con `User` y `Workspace`, exportabilidad y operación.
+Supabase Auth está `Approved` como proveedor inicial de identidad. El
+transporte de sesión, expiración, revocación, recuperación, controles de abuso,
+CSRF/CORS y lifecycle permanecen `Requirement pending detail`; no están
+implementados ni verificados. El backend validará tokens y mapeará la identidad
+externa a `User` y `Workspace`; no almacenará passwords.
 
 Independientemente del mecanismo elegido:
 
@@ -343,9 +345,10 @@ seguridad.
 
 ### Fuentes URL
 
-El backend no realizará fetch arbitrario de una URL enviada por el usuario. El
-primer tipo de Source y sus mecanismos de acceso deben aprobarse antes de
-implementar la adquisición.
+El backend no realizará fetch arbitrario de una URL enviada por el usuario. Las
+fuentes URL están fuera del primer MVP y siguen `Deferred`; cualquier fuente
+futura requiere ADR, threat model y mecanismos de acceso aprobados antes de
+implementarse.
 
 Cada Source requerirá una `OwnershipAttestation` ligada al usuario, workspace,
 fuente, versión exacta del texto aceptado, base declarada y momento. Una
@@ -374,7 +377,8 @@ permitidos requiere revisión del threat model y controles de egress.
 
 ### Uploads
 
-Si los uploads entran en alcance:
+El upload directo de MP4, MOV, MP3 y WAV está `Approved` como primer Source. La
+implementación y verificación de los controles siguen pendientes. Los uploads:
 
 - requerirán una sesión y una intención server-side previa;
 - usarán referencias y object keys aleatorios, no paths elegidos por el usuario;
@@ -679,12 +683,12 @@ Estado real del repositorio al publicar esta versión:
 | --- | --- |
 | Security Foundation | `Approved as initial security baseline` |
 | Frontend y API productivos | `Not implemented` |
-| Authentication y sesiones | `Not implemented / Deferred` |
+| Supabase Auth y sesiones | `Approved provider / Not implemented` |
 | Autorización por Workspace | `Designed / Not implemented` |
 | PostgreSQL, Prisma y migrations | `Not implemented` |
 | Worker y queue | `Not implemented` |
-| Providers de IA y transcripción | `Deferred` |
-| Object storage y upload flow | `Deferred` |
+| OpenAI para IA y transcripción | `Approved initial provider / Not implemented` |
+| Object storage S3-compatible y upload flow | `Approved direction / Not implemented` |
 | Hosting, región, networking y secret management | `Deferred` |
 | Logging, alerting y security scanning | `Deferred` |
 | Retention, deletion e incident policies | `Not approved` |
@@ -738,12 +742,12 @@ cumplir también producto, arquitectura, calidad y operación.
 
 | Tema | Decisión pendiente | Evidencia necesaria |
 | --- | --- | --- |
-| Authentication | Provider, session transport, duración, revocación, recuperación y MFA de usuarios | Threat model, UX, integración, operación y coste. |
+| Authentication | Session transport, duración, revocación, recuperación y MFA de usuarios con Supabase Auth | Threat model, UX, integración, operación y coste. |
 | Browser boundary | Cookie o token, CSRF, CORS, CSP y dominios exactos | Arquitectura de despliegue y flujo de autenticación elegidos. |
-| Source acquisition | Primer tipo de Source, hosts, protocolos y mecanismo permitido | Producto, derechos de acceso, SSRF, calidad y coste. |
+| Source acquisition | Límites y controles operativos del upload; futuras URLs siguen diferidas | Producto, derechos de acceso, parser, calidad y coste. |
 | Upload security | Formatos, tamaños, duración, quarantine y malware scanning | Casos reales, parser, storage y evaluación de riesgo. |
-| Providers | IA, transcripción, billing y posibles callbacks | Privacidad, retención, región, scopes, autenticidad, coste y resiliencia. |
-| Storage | Ubicación de archivos y transcripts, acceso temporal y lifecycle | Volumen, consultas, privacidad, eliminación y hosting. |
+| Providers | Modelos/configuración de OpenAI, billing futuro y posibles callbacks | Privacidad, retención, región, scopes, autenticidad, coste y resiliencia. |
+| Storage | Provider S3-compatible final, ubicación de transcripts, acceso temporal y lifecycle | Volumen, consultas, privacidad, eliminación y hosting. |
 | Secrets | Secret manager, cadencias y procedimiento de rotación | Hosting, CI/CD, providers y capacidad operativa. |
 | Rate limiting | Scopes, thresholds, ventanas, store y respuesta | Carga, costes, UX, proxy topology y abuse tests. |
 | Retention | Periodos por contenido, PII, logs, attestations, ledger y backups | Producto, soporte, legal, privacidad y coste. |
@@ -776,3 +780,47 @@ más restrictivo compatible con los documentos aprobados.
 
 Esta trazabilidad describe consecuencias de seguridad de decisiones aceptadas;
 no cambia su estado ni resuelve las decisiones `Deferred`.
+
+## 25. Gate de seguridad del primer flujo vertical
+
+### Taxonomía de evidencia
+
+| Estado | Significado |
+| --- | --- |
+| `Decision approved` | La Product Owner aprobó una dirección y existe un ADR. |
+| `Requirement defined` | El comportamiento verificable está documentado. |
+| `Control implemented` | Existe código o configuración revisada que aplica el requisito. |
+| `Control verified` | Pruebas o evidencia operativa demuestran que funciona, incluidos casos negativos. |
+
+Ningún elemento del flujo está todavía `Control implemented` ni `Control
+verified`.
+
+### Criterios previos a completar el vertical slice
+
+| Área | Decisión o requisito verificable | Estado actual |
+| --- | --- | --- |
+| Autenticación | Supabase Auth; registro, login, recuperación y validación backend de tokens; nunca passwords en ClipAI | `Decision approved / Requirement defined` |
+| Sesiones | Rechazo de token ausente, inválido, expirado o revocado; transporte, CSRF/CORS, logout y recuperación probados | `Requirement pending detail` |
+| Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Requirement defined` |
+| Upload | Solo MP4, MOV, MP3 y WAV; MIME real, tamaño, duración, frecuencia, archivo incompleto y contenido malicioso se tratan explícitamente | `Decision approved / Requirement defined` |
+| Object storage | Bucket privado S3-compatible; claves opacas aisladas; URLs firmadas mínimas; sin acceso público; lifecycle de objetos fallidos | `Decision approved / Requirement defined` |
+| Jobs | Idempotencia, un efecto por transición, retries acotados, timeout, cancelación y recuperación sin doble consumo | `Requirement defined` |
+| Transcripción | Adapter de OpenAI; modelo configurable; minimización de datos; errores, timeouts, cancelación, retención, eliminación y consumo documentados | `Decision approved / Requirement defined` |
+| IA | Adapter de OpenAI; prompts y schemas versionados; modelo configurable; output no confiable y validado antes de persistir | `Decision approved / Requirement defined` |
+| Logs y auditoría | Redacción previa al sink; sin archivos, transcripts, tokens, prompts ni signed URLs; actor y resultado para operaciones sensibles | `Requirement defined` |
+| Rate y processing limits | Límites por identidad, workspace, ruta costosa y provider; budgets y concurrencia acotados | `Requirement pending parameters` |
+| Retención | Periodos y tratamiento para archivos, transcripts, outputs, attestations, logs, provider data y backups | `Requirement pending policy` |
+| Eliminación | Workflow idempotente entre DB, storage y providers, con SLA, fallos parciales y evidencia | `Requirement pending policy` |
+| Fuentes URL futuras | Fuera del MVP; antes de activarlas: allowlist, SSRF, redirects, DNS, egress, tokens y lifecycle revisados | `Deferred / Requirement defined` |
+
+### Gates de implementación y verificación
+
+Antes de considerar completo el primer flujo deberán existir tests negativos de
+cross-tenant access; autorización de proyectos y archivos; MIME y tamaños;
+storage público accidental; signed URL expirada; duplicación de requests y
+retries; output de IA inválido; redacción; eliminación; y acceso sin sesión.
+También deberán registrarse owner, severidad y tratamiento de cada hallazgo.
+
+La aprobación documental del proveedor o requisito no autoriza datos reales.
+El gate de staging de la sección 22 permanece aplicable y exige controles
+implementados y verificados.

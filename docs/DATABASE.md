@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `04 — Data Model Foundation` |
-| Versión | `0.1` |
+| Versión | `0.2` |
 | Estado | `Approved as initial conceptual model` |
 | Estado de implementación | `Not implemented` |
 | Fase | Fase 0 — Foundation |
-| Última actualización | 2026-06-27 |
+| Última actualización | 2026-07-13 |
 
 Este documento define el modelo de datos conceptual inicial de ClipAI. Su
 propósito es establecer vocabulario, ownership, relaciones, ciclos de vida e
@@ -164,8 +164,9 @@ longitudes, defaults ni nombres definitivos de índices.
 
 ### `Source`
 
-- **Propósito:** representar una entrada autorizada, como una URL soportada o
-  una referencia opaca a un objeto proporcionado por el usuario.
+- **Propósito:** representar una entrada autorizada. En el primer MVP será una
+  referencia opaca a un archivo subido por el usuario y almacenado de forma
+  privada.
 - **Campos conceptuales:** `id`, `workspaceId`, `projectId`, `sourceType`,
   `sourceReference`, `providerName`, `providerSourceId`, `durationMs`, `state`,
   `createdAt`, `updatedAt`, `archivedAt`.
@@ -173,9 +174,12 @@ longitudes, defaults ni nombres definitivos de índices.
 - **Relaciones:** recibe una o más `OwnershipAttestation`, produce versiones de
   `Transcript` y participa en jobs y análisis.
 - **Restricciones:** no puede llegar a `accepted` ni iniciar procesamiento sin
-  una attestation válida. `sourceReference` no será una signed URL duradera; un
-  provider identifier no sustituye `id`. Una fuente aceptada puede dejar de ser
-  activa sin cambiar su estado.
+  una attestation válida. `sourceType` será inicialmente `upload` y el formato
+  verificado será MP4, MOV, MP3 o WAV. `sourceReference` será una referencia
+  opaca a storage, nunca una signed URL duradera ni un nombre elegido como key;
+  un provider identifier no sustituye `id`. Una fuente aceptada puede dejar de
+  ser activa sin cambiar su estado. No se crea `Asset` porque el archivo no
+  tiene todavía un lifecycle de dominio independiente del `Source`.
 - **Datos sensibles:** URLs, nombres de archivo, metadata y referencias de
   storage pueden revelar contenido privado.
 - **Eliminación:** archive/soft-delete y eliminación coordinada del objeto
@@ -242,7 +246,7 @@ longitudes, defaults ni nombres definitivos de índices.
   operación de análisis.
 - **Campos conceptuales:** `id`, `workspaceId`, `projectId`, `sourceId`,
   `transcriptId`, `processingJobId`, `state`, `summary`, `mainTopic`,
-  `resultStatus`, `promptVersion`, `modelIdentifier`, `outputSchemaVersion`,
+  `resultStatus`, `keyPoints`, `promptVersion`, `modelIdentifier`, `outputSchemaVersion`,
   `startedAt`, `completedAt`, `invalidReason`.
 - **Primary ownership:** `Workspace`, dentro de un `Project`.
 - **Relaciones:** usa exactamente un proyecto, una fuente, una versión de
@@ -267,7 +271,8 @@ longitudes, defaults ni nombres definitivos de índices.
   contenido corto.
 - **Campos conceptuales:** `id`, `workspaceId`, `analysisId`, `rank`,
   `startSegmentId`, `endSegmentId`, `startMs`, `endMs`, `title`, `hook`,
-  `platforms`, `rationale`, `createdAt`.
+  `callToAction`, `hashtags`, `derivedPostIdeas`, `platforms`, `rationale`,
+  `createdAt`.
 - **Primary ownership:** `Workspace`, por medio del `Analysis`.
 - **Relaciones:** pertenece a un análisis y usa dos segmentos de la misma
   versión de transcript como límites temporales.
@@ -400,12 +405,11 @@ estado en `Project`. `archived` no tiene salida en el MVP.
 
 ### `Source`
 
-`submitted → validating → accepted | awaiting_input | rejected` y
-`awaiting_input → validating` cuando llega información adicional. `accepted` y
-`rejected` son terminales para ese registro. Reemplazar una fuente crea otro
-`Source`; que una fuente deje de ser activa no altera su estado. Una URL,
-archivo, audio o transcript temporizado alternativo se registra como otra
-fuente, no como una mutación de la original.
+`submitted → validating → accepted | rejected`. `accepted` y `rejected` son
+terminales para ese registro. `awaiting_input` pertenece exclusivamente a
+`ProcessingJob`. Reemplazar una fuente crea otro `Source`; que una fuente deje
+de ser activa no altera su estado. Otro archivo soportado se registra como una
+fuente nueva, no como una mutación de la original.
 
 ### `ProcessingJob`
 
@@ -415,6 +419,11 @@ failed | cancelled` y `awaiting_input → cancelled`. `completed`, `failed` y
 otro `ProcessingJob`. Cada job conserva de forma inmutable el `sourceId` para el
 que nació. Los retries técnicos del queue message ocurren sobre el mismo job y
 no crean jobs de dominio.
+
+En el primer flujo basado en upload, `pending` y `uploaded` son etapas visibles
+derivadas de `Source` y del objeto privado antes de `queued`; no se añaden al
+enum de `ProcessingJob`. `currentStage` comunica subetapas como transcripción y
+análisis sin convertirlas en estados terminales.
 
 ### `Transcript`
 
@@ -715,12 +724,12 @@ funcionalidad sea autorizada y se definan sus invariantes.
 
 | Tema | Riesgo o decisión pendiente | Tratamiento provisional |
 | --- | --- | --- |
-| Authentication | Provider, session lifecycle, cambio de email y recuperación no están definidos. | Mantener `User.id` interno y referencias externas secundarias. |
-| Source inputs | Tipos, formatos, tamaños, idiomas y duración máxima siguen pendientes. | Usar `sourceType` y `sourceReference` conceptuales sin elegir vendor. |
-| Object storage | Necesidad, provider, regiones y lifecycle de objetos no están aprobados. | No guardar binarios grandes en PostgreSQL ni signed URLs duraderas. |
+| Authentication | Supabase Auth está aprobado; session lifecycle, cambio de email y recuperación detallada siguen pendientes. | Mantener `User.id` interno y referencias externas secundarias; no guardar passwords ni tokens. |
+| Source inputs | Upload MP4, MOV, MP3 y WAV está aprobado; tamaños, idiomas y duración máxima siguen pendientes. | Usar `sourceType = upload` y una `sourceReference` opaca. |
+| Object storage | Interfaz privada S3-compatible aprobada; provider, región y lifecycle siguen pendientes. | No guardar binarios grandes en PostgreSQL ni signed URLs duraderas. |
 | Transcript storage | Falta decidir si texto completo y segmentos vivirán íntegramente en PostgreSQL o usarán storage externo. | PostgreSQL conserva metadata, relaciones, estado y referencias autoritativas. |
 | Calidad temporal | Overlaps, gaps, precisión y tolerancias dependen del mecanismo real de transcripción. | Exigir milisegundos válidos, orden y respaldo verificable; no inventar tiempos. |
-| AI identity | Provider, modelo, parámetros, schema final y política de prompts están pendientes. | Persistir versiones internas `promptVersion`, `modelIdentifier` y `outputSchemaVersion`. |
+| AI identity | OpenAI está aprobado inicialmente; modelo, parámetros, schema final y prompts están pendientes. | Persistir versiones internas `promptVersion`, `modelIdentifier` y `outputSchemaVersion`. |
 | Billing unit | No están definidos créditos, minutos, coste, precio ni tratamiento comercial de parciales. | Ledger agnóstico mediante `quantity` y `unit`; jobs sin resultado liberan reserva. |
 | Reservation expiry | Duración, renovación y experiencia de reanudación no están definidas. | Permitir reservas secuenciales, solo una activa y una liquidación por job. |
 | Retention | Faltan periodos para contenido, PII, logs, attestations, ledger y backups. | Soft-delete, minimización y hard-delete restringido hasta aprobar la política. |

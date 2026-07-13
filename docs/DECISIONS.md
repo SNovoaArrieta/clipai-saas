@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | 03 — Architecture Decisions |
-| Versión | 0.1 |
+| Versión | 0.2 |
 | Estado | Registro inicial aprobado |
 | Estado de implementación | No implementada |
 | Fase | Fase 0 — Foundation |
-| Última actualización | 2026-06-26 |
+| Última actualización | 2026-07-13 |
 
 Este documento registra las decisiones arquitectónicas aprobadas para el MVP de
 ClipAI y las elecciones que todavía permanecen pendientes. Complementa el
@@ -444,6 +444,274 @@ ahora.
 **Trigger de revisión.** Cuando pierda su utilidad podrá archivarse o retirarse;
 nunca entrará en producción sin una migración explícita y revisada.
 
+### ADR-018 — Usar upload directo como primer tipo de Source
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-018` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** El primer flujo necesita una entrada controlable sin depender de
+plataformas, scraping ni disponibilidad de transcripts externos.
+
+**Decisión.** El primer `Source` será un archivo subido por la persona usuaria.
+Se prevén MP4, MOV, MP3 y WAV; tamaño y duración serán parámetros configurables
+definidos antes de producción. El archivo exige una attestation válida.
+
+**Razones.** Reduce dependencias, acota SSRF y permite medir calidad, coste y
+latencia con entradas conocidas.
+
+**Consecuencias.** Se necesita un flujo seguro de upload, validación real de
+tipo y lifecycle del objeto. Las URLs no forman parte del primer MVP.
+
+**Alternativas consideradas.** URLs de redes, scraping, importación de drives,
+grabación en browser y transcript proporcionado como primer flujo.
+
+**Riesgos.** Malware, archivos dañados, formatos engañosos, tamaño, coste y
+contenido sin autorización.
+
+### ADR-019 — Usar Supabase Auth como proveedor inicial de identidad
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-019` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** ClipAI requiere registro, login y recuperación sin construir un
+sistema propio de passwords.
+
+**Decisión.** Supabase Auth gestionará inicialmente email/password y
+recuperación. El backend validará tokens, resolverá `User` y `Workspace` y no
+guardará passwords. Magic link queda como opción futura.
+
+**Razones.** Delegar el lifecycle de credenciales reduce superficie propia y
+acelera un flujo estándar, manteniendo identidad interna separada.
+
+**Consecuencias.** Deben documentarse transporte de tokens, expiración,
+revocación, recuperación, CSRF/CORS aplicable y mapeo único de `authSubject`.
+
+**Alternativas consideradas.** Auth propia, otros proveedores administrados y
+magic link como único mecanismo.
+
+**Riesgos.** Configuración incorrecta, dependencia del proveedor, validación de
+tokens incompleta, account enumeration y recuperación abusiva.
+
+### ADR-020 — Confirmar tenancy por Workspace para el primer MVP
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-020` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** `ADR-008` ya establece `Workspace` como tenant. El primer MVP
+necesita concretar cómo se representa la pertenencia sin introducir equipos.
+
+**Decisión.** Cada usuario tendrá al menos un workspace; inicialmente podrá ser
+un workspace personal creado al registrar la cuenta. Toda operación privada
+resolverá usuario y workspace server-side y filtrará por `workspaceId`. Para el
+workspace personal, `ownerUserId` demuestra pertenencia. `Membership` continúa
+diferido hasta autorizar colaboración o múltiples miembros.
+
+**Razones.** Mantiene aislamiento desde el inicio y conserva el modelo mínimo
+aprobado.
+
+**Consecuencias.** Ningún ID del cliente basta para autorizar. Proyectos,
+sources, jobs, transcripts y outputs heredan el tenant.
+
+**Alternativas consideradas.** Datos directamente por usuario, workspace
+seleccionado sin verificación y `Membership` obligatoria desde el primer MVP.
+
+**Riesgos.** Consultas sin scope, confusión entre autenticación y autorización y
+futuras migraciones al introducir equipos.
+
+### ADR-021 — Usar object storage privado compatible con S3
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-021` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** Los binarios no pertenecen en PostgreSQL y requieren acceso
+privado, temporal y aislado.
+
+**Decisión.** Los archivos se almacenarán en object storage privado mediante
+una interfaz compatible con S3. Se usarán claves opacas con aislamiento por
+workspace y URLs firmadas temporales. El proveedor final queda pendiente.
+
+**Razones.** Separa datos binarios del system of record y conserva portabilidad
+entre opciones compatibles.
+
+**Consecuencias.** La base guardará referencias opacas y metadata necesaria;
+deben definirse permisos, MIME real, límites, expiración, retención y borrado.
+
+**Alternativas consideradas.** PostgreSQL, filesystem local, objetos públicos y
+acoplamiento directo a un proveedor concreto.
+
+**Riesgos.** Exposición por ACL, signed URLs demasiado largas, path traversal
+lógico, objetos huérfanos, residencia y costes.
+
+### ADR-022 — Usar OpenAI como proveedor inicial de transcripción
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-022` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** El MVP necesita transcripts temporizados de uploads autorizados.
+
+**Decisión.** La primera integración prevista usará la API de OpenAI detrás de
+un adapter de transcripción. El modelo será configurable y no se fija en esta
+fase.
+
+**Razones.** Permite comenzar con un proveedor administrado manteniendo el
+dominio independiente.
+
+**Consecuencias.** Antes de implementar se definirán datos enviados,
+identificadores, timeouts, errores, retries, cancelación, retención, eliminación
+y registro de consumo.
+
+**Alternativas consideradas.** Procesamiento propio, otros proveedores y
+transcripts aportados como único mecanismo.
+
+**Riesgos.** Privacidad, límites de archivo, latencia, coste, disponibilidad,
+idiomas y calidad temporal.
+
+### ADR-023 — Usar OpenAI como proveedor inicial de análisis
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-023` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** El primer análisis necesita producir resultados estructurados a
+partir de transcripts validados.
+
+**Decisión.** La primera integración prevista usará la API de OpenAI detrás de
+un adapter. Prompts, proveedor, modelo, schema y consumo permanecerán separados;
+el modelo será configurable. Toda salida se validará antes de persistirse.
+
+**Razones.** Conserva los límites de `ADR-010` y `ADR-012` mientras habilita una
+integración inicial concreta.
+
+**Consecuencias.** Se versionarán prompts, identificadores de modelo y schemas;
+una salida inválida no será un resultado completado.
+
+**Alternativas consideradas.** Otro proveedor, modelos propios y llamadas
+directas desde el frontend o dominio.
+
+**Riesgos.** Prompt injection, output inválido, coste, latencia, retención del
+proveedor y cambios de comportamiento del modelo.
+
+### ADR-024 — Aplazar fuentes externas
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-024` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** URLs y plataformas añaden permisos, SSRF, tokens, scraping y
+dependencias ajenas al valor central.
+
+**Decisión.** YouTube, Instagram, TikTok, scraping, drives e importaciones
+automáticas quedan fuera del primer MVP. Cada futura fuente requiere evidencia
+y un ADR independiente.
+
+**Razones.** Mantiene el primer flujo pequeño y reduce riesgos no esenciales.
+
+**Consecuencias.** La arquitectura preservará adapters, pero no implementará
+conectores anticipados. SSRF seguirá en el threat model futuro.
+
+**Alternativas consideradas.** URL como fuente principal y soporte simultáneo
+de varias plataformas.
+
+**Riesgos.** Menor comodidad inicial y que el upload no represente el flujo
+preferido del ICP.
+
+### ADR-025 — Excluir billing del primer flujo vertical
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-025` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** El valor y la economía unitaria todavía no están validados.
+
+**Decisión.** Billing, pagos, planes y suscripciones quedan fuera del primer
+flujo. El ledger de uso permanece provider-neutral y no presupone cobro.
+
+**Razones.** Evita complejidad comercial antes de probar valor e intención de
+pago.
+
+**Consecuencias.** Monetización será una fase posterior con decisiones propias.
+
+**Alternativas consideradas.** Suscripción desde el MVP y créditos gestionados
+por el proveedor de billing.
+
+**Riesgos.** Menor evidencia temprana de pago y necesidad de migrar límites de
+piloto a una oferta comercial.
+
+### ADR-026 — Confirmar procesamiento asíncrono mediante Jobs
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-026` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** Upload, transcripción y análisis pueden superar el tiempo de una
+petición HTTP. `ADR-006` y `ADR-016` ya establecen procesamiento asíncrono.
+
+**Decisión.** `ProcessingJob` será el registro durable del flujo, con estados
+de job `queued`, `processing`, `completed`, `failed` y `cancelled`. `pending` y
+`uploaded` serán etapas visibles derivadas del upload y `Source`, no estados
+duplicados del job.
+
+**Razones.** Mantiene coherencia entre dominio, UI y cola interna.
+
+**Consecuencias.** Retries, cancelación e idempotencia operan sobre el mismo
+job; el queue message no es la entidad de negocio.
+
+**Alternativas consideradas.** Procesamiento síncrono y un enum único mezclando
+upload, source, transcript y job.
+
+**Riesgos.** Estados derivados incoherentes, trabajos abandonados, doble coste y
+cancelación parcial.
+
+### ADR-027 — Mantener modelos y proveedores configurables mediante adapters
+
+| Campo | Valor |
+| --- | --- |
+| Identificador | `ADR-027` |
+| Estado | `Accepted` |
+| Fecha | 2026-07-13 |
+
+**Contexto.** OpenAI es el proveedor inicial previsto, pero modelos, precios y
+capacidades cambian y no deben convertirse en reglas del dominio.
+
+**Decisión.** Transcripción y análisis usarán adapters estrechos. Proveedor,
+modelo, parámetros, prompts y schemas se resolverán mediante configuración
+server-side versionada; no se expondrán secretos al browser.
+
+**Razones.** Confirma `ADR-009`, `ADR-010` y `ADR-012` para las integraciones
+elegidas.
+
+**Consecuencias.** Se necesitan contratos, normalización de errores, metadata
+de versión y tests de adapters.
+
+**Alternativas consideradas.** SDKs dentro del dominio, modelos hard-coded y
+selección de proveedor desde el cliente.
+
+**Riesgos.** Abstracción demasiado genérica, falsa portabilidad y configuración
+incompatible con resultados históricos.
+
 ## 4. Decision Register — Pending
 
 Estas decisiones permanecen `Deferred`. Su registro no propone ni aprueba
@@ -451,13 +719,13 @@ vendors.
 
 | Decisión pendiente | Estado | Evidencia necesaria para decidir |
 | --- | --- | --- |
-| Authentication provider y session model | `Deferred` | Experiencia, seguridad, lifecycle de sesión y mapeo a `User` y `Workspace`. |
-| AI provider y model | `Deferred` | Calidad, structured output, coste, latencia, privacidad y transcripts largos. |
-| Transcription mechanism y provider | `Deferred` | Acceso autorizado, timestamps, idiomas, cobertura, coste y fallos. |
+| Supabase Auth session details | `Deferred` | Transporte de tokens, expiración, revocación, CSRF/CORS, recuperación y MFA. |
+| OpenAI analysis model y configuración | `Deferred` | Calidad, structured output, coste, latencia, privacidad y transcripts largos. |
+| OpenAI transcription model y configuración | `Deferred` | Timestamps, idiomas, cobertura, coste, límites y fallos. |
 | Billing provider | `Deferred` | Modelo comercial, créditos, fallos, webhooks, impuestos y conciliación. |
-| Necesidad y provider de object storage | `Deferred` | Entradas, uploads, tamaños, acceso, seguridad, coste y retención. |
+| Provider final de object storage compatible con S3 | `Deferred` | Región, acceso, seguridad, coste, lifecycle y hosting. |
 | Hosting platform y region | `Deferred` | Runtime, PostgreSQL, worker, residencia, coste, backups y operación. |
 | Librería de jobs PostgreSQL-backed | `Deferred` | Entrega, recuperación, mantenimiento, concurrencia, observabilidad y límites. |
 | Herramientas de monitoring y error reporting | `Deferred` | Hosting, señales, privacidad de logs, alertas, presupuesto y objetivos. |
 | Periodos de retention y deletion | `Deferred` | Requisitos legales, privacidad, soporte, coste y tipos de datos. |
-| Supported source types, languages y maximum video duration | `Deferred` | Investigación del ICP, acceso, calidad, latencia, coste y límites medidos. |
+| Tamaño, duración e idiomas del upload | `Deferred` | Investigación del ICP, calidad, latencia, coste y límites medidos. |

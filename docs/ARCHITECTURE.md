@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | 02 — Architecture Foundation |
-| Versión | 0.1 |
+| Versión | 0.2 |
 | Estado | Aprobado como arquitectura objetivo inicial |
 | Estado de implementación | No implementada |
 | Fase | Fase 0 — Foundation |
-| Última actualización | 2026-06-26 |
+| Última actualización | 2026-07-13 |
 
 Este documento define la arquitectura objetivo inicial del MVP de ClipAI y los
 límites técnicos que deberán respetarse cuando se autorice su construcción. No
@@ -52,8 +52,9 @@ en inglés aunque la documentación esté escrita en español.
    uso deberá poder reconstruirse desde PostgreSQL. Un proveedor externo no será
    la fuente autoritativa del dominio.
 6. **Límites de proveedor estrechos.** Se aislarán autenticación, transcripción,
-   IA, billing y storage detrás de adaptadores orientados a la capacidad. No se
-   construirá un framework genérico de plugins.
+   IA y storage detrás de adaptadores orientados a la capacidad. Billing usará
+   el mismo principio únicamente cuando sea autorizado en una fase posterior.
+   No se construirá un framework genérico de plugins.
 7. **Aislamiento por Workspace.** Los recursos privados se asociarán a un
    `Workspace`, incluso cuando el MVP solo permita un workspace personal por
    usuario.
@@ -74,11 +75,11 @@ resultado estructurado. El producto entregará recomendaciones editoriales con
 rangos temporales verificables; no cortará, renderizará ni entregará archivos de
 video editados.
 
-El sistema dependerá de capacidades externas para autenticación,
-transcripción, IA, billing y, si los tipos de entrada lo requieren, storage.
-Esos sistemas se considerarán fuera del límite de confianza de ClipAI. El
-backend será responsable de autenticar sus respuestas, normalizar errores y
-validar cualquier dato recibido.
+El primer MVP dependerá de capacidades externas para autenticación,
+transcripción, IA y storage. Billing permanece fuera de su alcance y solo se
+incorporará en una fase posterior. Esos sistemas se considerarán fuera del
+límite de confianza de ClipAI. El backend será responsable de autenticar sus
+respuestas, normalizar errores y validar cualquier dato recibido.
 
 ## 4. Diagrama de componentes de alto nivel
 
@@ -113,7 +114,7 @@ flowchart LR
         Auth["Authentication"]
         Transcription["Transcription"]
         AI["AI analysis"]
-        Billing["Billing"]
+        Billing["Billing<br/>future phase"]
         Storage["Storage"]
     end
 
@@ -163,7 +164,7 @@ server/
       authentication/
       transcription/
       ai/
-      billing/
+      billing/ # futuro; no pertenece al primer MVP
       storage/
     shared/
     app.ts
@@ -238,7 +239,7 @@ se colocarán en routes, controllers ni adaptadores de proveedor.
 | `projects` | Administrar `Project`, `Source` y `OwnershipAttestation`, incluidos sus estados visibles. |
 | `analysis` | Normalizar y validar `Transcript` y `TranscriptSegment`; producir y validar `Analysis` y `ClipRecommendation`. |
 | `jobs` | Administrar el ciclo de vida de negocio de `ProcessingJob` e integrar la librería de jobs seleccionada. No implementará el motor interno de la cola ni será dueño del resultado de análisis. |
-| `usage` | Comprobar disponibilidad, crear `UsageReservation` y registrar `UsageLedgerEntry`; coordinar el límite de billing. |
+| `usage` | Comprobar disponibilidad, crear `UsageReservation` y registrar `UsageLedgerEntry`; preservar un límite provider-neutral para billing futuro sin implementarlo en el primer MVP. |
 | `providers` | Implementar adaptadores de capacidades externas sin poseer reglas ni datos del dominio. |
 
 Los módulos colaborarán mediante services explícitos y no mediante acceso
@@ -315,10 +316,11 @@ validación, análisis y finalización. La integración deberá usar las garant�
 documentadas de la librería y mantener idempotentes los efectos de dominio.
 
 Los estados conceptuales mínimos serán `queued`, `processing`,
-`awaiting_input`, `completed` y `failed`. Todavía no constituyen un
+`awaiting_input`, `completed`, `failed` y `cancelled`. Todavía no constituyen un
 contrato público de API. `awaiting_input` no ocupará un worker mientras se
-espera al usuario. Cuando llegue la entrada requerida se podrá publicar otro
-queue job para continuar el mismo `ProcessingJob`.
+espera al usuario. Si la persona aporta otro archivo soportado, el backend
+cancelará de forma idempotente el job anterior y creará otro `Source` y otro
+`ProcessingJob`; no cambiará silenciosamente la entrada del job existente.
 
 Las operaciones con efectos deberán ser idempotentes por `ProcessingJob`.
 Cada intento comprobará el estado durable antes de producir efectos, y una
@@ -342,7 +344,7 @@ TypeScript implementadas:
 | `AuthenticationProvider` | Validar o intercambiar identidad y entregar una referencia estable. La autorización de dominio permanece en ClipAI. |
 | `TranscriptionProvider` | Recibir una entrada soportada y devolver un transcript temporizado normalizado o un fallo clasificable. No buscará copias mediante scraping no autorizado. |
 | `AiAnalysisProvider` | Recibir transcript validado e instrucciones internas y devolver una salida estructurada candidata. No escribirá en la base de datos. |
-| `BillingProvider` | Comunicar estado comercial y eventos de pago. El ledger de uso y la autorización de un análisis permanecen en ClipAI. |
+| `BillingProvider` | Capacidad futura, fuera del primer MVP, para comunicar estado comercial y eventos de pago. El ledger de uso y la autorización de un análisis permanecerán en ClipAI. |
 | `StorageProvider` | Guardar y recuperar objetos autorizados mediante referencias opacas y acceso de duración limitada. |
 
 Cada capacidad comenzará con un solo adaptador concreto cuando se elija un
@@ -350,17 +352,19 @@ proveedor. Los adaptadores traducirán credenciales, timeouts, errores y payload
 externos a conceptos internos. No se crearán abstracciones para soportar
 cambios hipotéticos que no aporten una frontera de seguridad, prueba o negocio.
 
-Todas las credenciales y llamadas privilegiadas vivirán en el servidor. La
-selección de proveedores y sus modelos específicos permanece pendiente.
+Todas las credenciales y llamadas privilegiadas vivirán en el servidor. OpenAI
+está aprobado como proveedor inicial de transcripción y análisis, y Supabase
+Auth como proveedor de identidad. Los modelos, parámetros y detalles de sesión
+permanecen configurables y pendientes de decisión operativa.
 
 ## 12. Flujo inicial de una solicitud de análisis
 
-1. **Envío autorizado.** El usuario autenticado envía una `Source` soportada y
-   confirma que posee el contenido o tiene autorización suficiente para
-   procesarlo.
-2. **Validación.** El backend valida sesión, acceso al workspace, formato,
-   soporte de la fuente y presencia de `OwnershipAttestation`. La attestation
-   queda registrada, pero no se interpreta como garantía legal.
+1. **Upload autorizado.** El usuario autenticado crea una intención server-side,
+   sube un MP4, MOV, MP3 o WAV a object storage privado compatible con S3 y
+   confirma que posee el contenido o tiene autorización suficiente.
+2. **Validación.** El backend valida token de Supabase, usuario, pertenencia al
+   workspace personal, referencia opaca, MIME real, formato, límites y
+   `OwnershipAttestation`. La attestation no se interpreta como garantía legal.
 3. **Creación durable.** El backend crea `Project`, `Source`,
    `OwnershipAttestation` y `ProcessingJob` en estado `queued`. La
    operación deberá ser idempotente ante reenvíos del cliente.
@@ -369,11 +373,9 @@ selección de proveedores y sus modelos específicos permanece pendiente.
    no comienza y no se liquida consumo. Cuando la reserva es válida, el backend
    publica un queue job interno que referencia el mismo `ProcessingJob`.
 5. **Adquisición del transcript.** La librería entrega el queue job a un worker,
-   que carga el `ProcessingJob` e intenta obtener un transcript mediante un
-   mecanismo soportado. Si no existe uno utilizable, cambia el registro de
-   negocio a `awaiting_input` y el frontend solicita una entrada permitida,
-   como archivo de video, audio o transcript temporizado. El intento interno
-   termina sin perder el estado persistido.
+   que carga el `ProcessingJob` y usa el adapter de transcripción de OpenAI con
+   modelo configurable. Timeouts, errores, retries y cancelación se traducen a
+   estados seguros sin exponer payloads ni referencias del archivo.
 6. **Validación temporal.** El backend normaliza y valida
    `TranscriptSegment`: texto requerido, timestamps no negativos, rangos
    coherentes y orden temporal. Sin segmentos temporizados confiables no se
@@ -398,9 +400,11 @@ selección de proveedores y sus modelos específicos permanece pendiente.
     reintentos del queue job no generan nuevos cargos. La política comercial
     para costes parciales del proveedor permanece pendiente.
 
-El resultado contendrá resumen, tema principal y recomendaciones priorizadas
-con timestamps verificables, título, hook, plataformas sugeridas y rationale.
-No incluirá archivos editados ni afirmará garantizar alcance o viralidad.
+El resultado podrá contener transcript, resumen, tema y puntos clave, además de
+recomendaciones priorizadas con timestamps, títulos, hooks, CTA, hashtags,
+ideas de publicaciones, plataformas y rationale. `Generated Outputs` describe
+estos datos de `Analysis` y `ClipRecommendation`; no crea otro agregado. No
+incluirá archivos editados ni afirmará garantizar alcance o viralidad.
 
 ## 13. Límites de seguridad
 
@@ -514,6 +518,7 @@ El MVP inicial no buscará:
 - un motor propio de queue claiming, heartbeats, leases, retry scheduling o
   abandoned-job recovery;
 - colaboración avanzada, roles de equipos o portales de clientes;
+- billing, pagos, planes o suscripciones;
 - una API pública para desarrolladores;
 - procesamiento universal de cualquier URL o red social;
 - edición, corte, reencuadre, renderizado o publicación de video;
@@ -537,10 +542,11 @@ El MVP inicial no buscará:
 
 ### Arquitectura futura del MVP
 
-Todo componente, entidad, flujo, estado o despliegue descrito en las secciones
-anteriores es arquitectura objetivo para una fase futura de construcción. No
-deberá describirse en documentación, demos ni comunicación como una capacidad
-ya implementada hasta que exista, esté probada y haya superado sus criterios de
+Todo componente, entidad, flujo, estado o despliegue aplicable al primer MVP es
+arquitectura objetivo para una fase futura de construcción. Los elementos
+marcados como futuros —incluido billing— no pertenecen al primer MVP. Ninguna
+capacidad deberá describirse en documentación, demos ni comunicación como ya
+implementada hasta que exista, esté probada y haya superado sus criterios de
 aceptación.
 
 El soporte futuro para equipos se preserva mediante `Workspace`, pero no se
@@ -567,16 +573,14 @@ decisión posterior.
 Las siguientes decisiones están **pendientes** y no deben inferirse de este
 documento:
 
-1. Proveedor y modelo de sesión para autenticación.
-2. Primer tipo de fuente soportada y mecanismos permitidos para adquirir su
-   transcript.
-3. Proveedor de transcripción, idiomas iniciales y criterios mínimos de calidad.
-4. Proveedor y modelo de IA, schema final de salida, estrategia de prompts y
+1. Transporte, lifecycle, recuperación y controles de sesión con Supabase Auth.
+2. Tamaño, duración, frecuencia y validación operativa de MP4, MOV, MP3 y WAV.
+3. Modelo/configuración de OpenAI para transcripción, idiomas y calidad mínima.
+4. Modelo/configuración de OpenAI para análisis, schema final, prompts y
    tratamiento de transcripts largos.
 5. Proveedor de billing y política comercial para reservas, fallos parciales,
    expiraciones, reintentos y ajustes.
-6. Necesidad y proveedor de storage, además de formatos, tamaños, duraciones y
-   flujo de upload.
+6. Proveedor final compatible con S3, región y parámetros del flujo de upload.
 7. Representación física, retención, eliminación y residencia de archivos,
    transcripts, prompts y resultados.
 8. Hosting, región, networking, secret management y observabilidad.
@@ -592,4 +596,22 @@ documento:
 No están abiertas en esta fase la elección de monolito modular, el stack
 React/Vite/TypeScript y Node.js/Express/TypeScript, PostgreSQL como system of
 record, Prisma como ORM planificado, el procesamiento asíncrono, los límites de
-proveedores ni la exclusión inicial de microservicios, Kubernetes y Redis.
+proveedores, Supabase Auth, el upload como primer Source, la interfaz S3,
+OpenAI como proveedor inicial ni la exclusión de microservicios, Kubernetes y
+Redis.
+
+## 21. Aclaraciones del primer vertical slice
+
+El orden aprobado es `User → Workspace → Project → File Upload →
+ProcessingJob → Transcript → Analysis → Generated Outputs`. El upload se
+representa mediante `Source` y su referencia opaca de storage; no se añade una
+entidad `Asset` hasta que surja un lifecycle independiente que la justifique.
+
+El MVP personal comprueba pertenencia mediante `Workspace.ownerUserId`.
+`Membership` continúa diferido para equipos, conforme a la arquitectura
+aprobada. Esta relación nunca autoriza por un `workspaceId` enviado por cliente.
+
+La proyección visible puede mostrar `pending` y `uploaded` antes de crear o
+encolar el `ProcessingJob`. El job conserva `queued`, `processing`,
+`completed`, `failed` y `cancelled`; `currentStage` permite comunicar
+transcripción o análisis sin duplicar estados en `Project`.
