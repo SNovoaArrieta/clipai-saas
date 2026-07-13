@@ -409,18 +409,33 @@ se duplican en `Project`.
 
 ## 19. Checklist verificable de salida de Fase 0
 
+### Instrumentos de validación disponibles
+
+- [Plan de validación](VALIDATION_PLAN.md): comparación de segmentos, guion y
+  registros anónimos de entrevistas.
+- [Línea base manual](MANUAL_BASELINE.md): medición del proceso actual.
+- [Rúbrica de calidad](QUALITY_RUBRIC.md): criterios versionados de evaluación.
+- [Ejemplos representativos](REPRESENTATIVE_EXAMPLES.md): cobertura,
+  autorización y lifecycle de ejemplos.
+- [Índice de evidencias](VALIDATION_EVIDENCE.md): trazabilidad y estado de cada
+  criterio pendiente.
+
+Estos documentos son instrumentos vacíos de resultados. Su creación no
+constituye evidencia, no cambia el estado de ningún criterio y no autoriza
+cerrar Fase 0.
+
 | Criterio aprobado en la sección 16 | Evidencia al 2026-07-13 | Estado |
 | --- | --- | --- |
 | Charter revisado por Sofía | Decisiones de alcance entregadas por la Product Owner y registradas en esta versión | `Met` |
 | Función estratégica para la empresa | Posicionamiento de producto fundador, demostración y aprendizaje documentado en este charter, Founder Book y roadmap | `Met` |
-| Evidencia sobre frecuencia, severidad y coste del problema | No se adjuntaron entrevistas ni síntesis de investigación | `Pending` |
-| Flujo actual y línea base manual | El flujo futuro está definido; falta documentar el proceso actual y medir su tiempo | `Pending` |
-| Rúbrica de calidad | No existe una rúbrica versionada para utilidad, contexto y timestamps | `Pending` |
-| Ejemplos representativos autorizados | No existe evidencia registrada de la prueba y sus resultados | `Pending` |
+| Evidencia sobre frecuencia, severidad y coste del problema | `VALIDATION_PLAN.md` aporta instrumentos; no existen entrevistas ni síntesis reales | `Pending` |
+| Flujo actual y línea base manual | `MANUAL_BASELINE.md` define el método; no contiene mediciones | `Pending` |
+| Rúbrica de calidad | `QUALITY_RUBRIC.md` versión 0.1 existe, pero no ha sido aplicada, calibrada ni aceptada con evidencia | `Pending` |
+| Ejemplos representativos autorizados | `REPRESENTATIVE_EXAMPLES.md` existe, pero el registro está vacío y no hay pruebas | `Pending` |
 | Estrategia viable de transcripción sin scraping | Upload directo y OpenAI mediante adapter están aprobados; falta validar límites, calidad, coste y privacidad | `Partially met` |
 | Límites, non-goals y recorrido del MVP | Secciones 10 a 12 y ADR-018 a ADR-027 | `Met` |
 | Revisión preliminar de coste, latencia, privacidad y lifecycle | Riesgos están identificados; faltan evaluación de provider, retención y eliminación | `Pending` |
-| Umbrales ajustados con evidencia | Existen objetivos preliminares en secciones 14 y 15, sin ajuste empírico | `Pending` |
+| Umbrales ajustados con evidencia | `VALIDATION_EVIDENCE.md` inicia la trazabilidad; los objetivos de secciones 14 y 15 siguen sin ajuste empírico | `Pending` |
 | Arquitectura y estándares técnicos aprobados | Architecture Foundation, ADRs y Development Guide | `Met` |
 
 ## 20. Conclusión del gate

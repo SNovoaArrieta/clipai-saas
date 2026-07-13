@@ -39,6 +39,14 @@ disponibles.
 sección 19 de `PRODUCT.md`, registrarse las decisiones necesarias para el primer
 flujo y aprobarse los criterios de seguridad previos a su implementación.
 
+El trabajo de evidencia utilizará [el plan de validación](VALIDATION_PLAN.md),
+[la línea base manual](MANUAL_BASELINE.md),
+[la rúbrica de calidad](QUALITY_RUBRIC.md),
+[el registro de ejemplos](REPRESENTATIVE_EXAMPLES.md) y
+[el índice de evidencias](VALIDATION_EVIDENCE.md). La existencia de estas
+plantillas no satisface el gate: deben contener evidencia real, revisada y
+aceptada.
+
 **Dependencias.** Evidencia comparativa de los segmentos candidatos, selección
 de un segmento prioritario, línea base manual, rúbrica de calidad, pruebas
 representativas autorizadas y evaluación preliminar de coste, latencia,

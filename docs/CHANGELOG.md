@@ -4,6 +4,23 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Product validation kit
+
+### Added
+
+- Plan operativo para comparar segmentos y registrar entrevistas anónimas.
+- Plantilla para medir la línea base del proceso manual.
+- Rúbrica versionada para transcripción, análisis y outputs editoriales.
+- Registro de ejemplos representativos y sus permisos de uso.
+- Índice trazable de evidencias para los criterios pendientes de Fase 0.
+
+### Status
+
+- El kit contiene instrumentos y plantillas, no entrevistas, mediciones,
+  resultados ni evidencia aceptada.
+- Ningún criterio pendiente cambia de estado por crear estos documentos.
+- La Fase 0 continúa abierta y la Fase 1 continúa sin autorización.
+
 ## 2026-07-13 — Founder product positioning
 
 ### Added
