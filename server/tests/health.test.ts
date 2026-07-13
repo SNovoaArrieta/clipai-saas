@@ -82,6 +82,39 @@ describe('environment configuration', () => {
     ).toThrow('authentication cannot be disabled in production');
   });
 
+  it('requires PostgreSQL persistence in production', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        PORT: '3000',
+        AUTH_MODE: 'supabase',
+        SUPABASE_URL: 'https://project.supabase.co',
+      }),
+    ).toThrow('Missing DATABASE_URL');
+  });
+
+  it('accepts only PostgreSQL database URLs', () => {
+    expect(
+      loadEnv({
+        DATABASE_URL: 'postgresql://user:password@localhost:5432/clipai_test',
+      }),
+    ).toMatchObject({
+      databaseUrl: 'postgresql://user:password@localhost:5432/clipai_test',
+    });
+
+    for (const invalidUrl of [
+      'not-a-url',
+      'https://localhost/database',
+      'postgresql:///database',
+      'postgresql://localhost',
+      'postgresql://localhost/database#fragment',
+    ]) {
+      expect(() => loadEnv({ DATABASE_URL: invalidUrl })).toThrow(
+        'Invalid DATABASE_URL',
+      );
+    }
+  });
+
   it('validates and normalizes Supabase authentication configuration', () => {
     expect(
       loadEnv({

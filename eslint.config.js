@@ -10,6 +10,7 @@ export default defineConfig(
       '**/dist/**',
       '**/build/**',
       '**/coverage/**',
+      '**/src/generated/prisma/**',
       '**/.cache/**',
       '**/.env*',
       '**/*.min.*',

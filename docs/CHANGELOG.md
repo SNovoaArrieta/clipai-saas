@@ -4,6 +4,37 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Internal user and personal workspace persistence
+
+### Added
+
+- Prisma ORM `7.8.0`, PostgreSQL mediante `PrismaPg`, schema físico y migración
+  inicial para `User` y `Workspace`.
+- Restricciones UUID, primary keys, `User.authSubject` único,
+  `Workspace.ownerUserId` único y foreign key con eliminación `RESTRICT`.
+- Contrato provider-neutral `IdentityProvisioner` e implementación transaccional
+  idempotente que actualiza email sin borrarlo cuando falta en un token posterior.
+- Proyección interna de `GET /api/v1/me` con `user.id`, email opcional y
+  `workspace.id`, sin exponer `authSubject` ni ownership interno.
+- Códigos seguros de indisponibilidad de persistencia, configuración de
+  `DATABASE_URL`, scripts explícitos de Prisma y shutdown de HTTP y PostgreSQL.
+- Nueve pruebas de integración PostgreSQL protegidas por `NODE_ENV=test`,
+  `TEST_DATABASE_URL` y nombre de base que contenga `test`.
+
+### Validation status
+
+- Las 40 pruebas unitarias se ejecutan sin PostgreSQL, Supabase real ni acceso a
+  Internet.
+- La migración fue revisada y Prisma valida y genera el cliente sin conexión a
+  una base de datos.
+- La migración y las nueve pruebas PostgreSQL no se ejecutaron porque el entorno
+  no dispone de `TEST_DATABASE_URL` ni servicio PostgreSQL local.
+- `npm audit` reporta tres hallazgos moderados en tooling de desarrollo, desde
+  `@hono/node-server` transitivo de `@prisma/dev`; la única corrección propuesta
+  por npm baja a Prisma 6 y no se aplicó porque esta tarea requiere Prisma 7.
+- No se añadieron Projects, uploads, Jobs, IA, equipos, memberships, billing ni
+  código en `client/`.
+
 ## 2026-07-13 — Supabase identity boundary
 
 ### Added

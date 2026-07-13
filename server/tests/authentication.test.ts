@@ -8,11 +8,22 @@ import {
   IdentityVerificationError,
   type IdentityVerifier,
 } from '../src/identity/identity-verifier.js';
+import {
+  IdentityProvisioningError,
+  type IdentityProvisioner,
+  type ProvisionedIdentity,
+} from '../src/provisioning/identity-provisioner.js';
 
 function createVerifier(
   verify: (token: string) => Promise<AuthenticatedIdentity>,
 ): IdentityVerifier {
   return { verifyAccessToken: verify };
+}
+
+function createProvisioner(
+  provision: (identity: AuthenticatedIdentity) => Promise<ProvisionedIdentity>,
+): IdentityProvisioner {
+  return { provision };
 }
 
 describe('authentication boundary', () => {
@@ -79,7 +90,7 @@ describe('authentication boundary', () => {
     expect(response.body.error.code).toBe('AUTH_INVALID');
   });
 
-  it('returns only the verified identity projection', async () => {
+  it('returns only the provisioned internal identity projection', async () => {
     const identityVerifier = createVerifier(async (token) => {
       expect(token).toBe('verified-token');
       return {
@@ -88,7 +99,17 @@ describe('authentication boundary', () => {
         providerMetadata: { role: 'should-not-leak' },
       } as AuthenticatedIdentity;
     });
-    const response = await request(createApp({ identityVerifier }))
+    const identityProvisioner = createProvisioner(async (identity) => {
+      expect(identity.authSubject).toBe('verified-subject');
+      expect(identity.email).toBe('user@example.com');
+      return {
+        user: { id: 'internal-user-id', email: 'user@example.com' },
+        workspace: { id: 'internal-workspace-id' },
+      };
+    });
+    const response = await request(
+      createApp({ identityVerifier, identityProvisioner }),
+    )
       .get('/api/v1/me')
       .set('Authorization', 'Bearer verified-token');
 
@@ -96,15 +117,42 @@ describe('authentication boundary', () => {
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body).toEqual({
       data: {
-        authSubject: 'verified-subject',
-        email: 'user@example.com',
+        user: {
+          id: 'internal-user-id',
+          email: 'user@example.com',
+        },
+        workspace: { id: 'internal-workspace-id' },
       },
     });
     expect(JSON.stringify(response.body)).not.toContain('verified-token');
-    expect(Object.keys(response.body.data)).toEqual(['authSubject', 'email']);
+    expect(JSON.stringify(response.body)).not.toContain('verified-subject');
+    expect(JSON.stringify(response.body)).not.toContain('authSubject');
   });
 
-  it('omits email when the verified identity does not contain it', async () => {
+  it('omits email when the provisioned identity does not contain it', async () => {
+    const identityVerifier = createVerifier(async () => ({
+      authSubject: 'verified-subject',
+    }));
+    const identityProvisioner = createProvisioner(async () => ({
+      user: { id: 'internal-user-id' },
+      workspace: { id: 'internal-workspace-id' },
+    }));
+    const response = await request(
+      createApp({ identityVerifier, identityProvisioner }),
+    )
+      .get('/api/v1/me')
+      .set('Authorization', 'Bearer verified-token');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: {
+        user: { id: 'internal-user-id' },
+        workspace: { id: 'internal-workspace-id' },
+      },
+    });
+  });
+
+  it('returns 503 after valid authentication when persistence is not configured', async () => {
     const identityVerifier = createVerifier(async () => ({
       authSubject: 'verified-subject',
     }));
@@ -112,10 +160,55 @@ describe('authentication boundary', () => {
       .get('/api/v1/me')
       .set('Authorization', 'Bearer verified-token');
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      data: { authSubject: 'verified-subject' },
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe('PERSISTENCE_NOT_CONFIGURED');
+  });
+
+  it('returns 503 when persistence is temporarily unavailable', async () => {
+    const identityVerifier = createVerifier(async () => ({
+      authSubject: 'verified-subject',
+    }));
+    const identityProvisioner = createProvisioner(async () => {
+      throw new IdentityProvisioningError('unavailable');
     });
+    const response = await request(
+      createApp({ identityVerifier, identityProvisioner }),
+    )
+      .get('/api/v1/me')
+      .set('Authorization', 'Bearer verified-token');
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({
+      error: {
+        code: 'PERSISTENCE_UNAVAILABLE',
+        message: 'Persistence is temporarily unavailable.',
+      },
+    });
+  });
+
+  it('does not expose persistence internals on unexpected failures', async () => {
+    const identityVerifier = createVerifier(async () => ({
+      authSubject: 'verified-subject',
+    }));
+    const identityProvisioner = createProvisioner(async () => {
+      throw new Error(
+        'Prisma P2002 SELECT * FROM User postgresql://secret@db.internal',
+      );
+    });
+    const response = await request(
+      createApp({ identityVerifier, identityProvisioner }),
+    )
+      .get('/api/v1/me')
+      .set('Authorization', 'Bearer verified-token');
+    const serializedBody = JSON.stringify(response.body);
+
+    expect(response.status).toBe(500);
+    expect(response.body.error.code).toBe('INTERNAL_ERROR');
+    expect(serializedBody).not.toContain('Prisma');
+    expect(serializedBody).not.toContain('P2002');
+    expect(serializedBody).not.toContain('SELECT');
+    expect(serializedBody).not.toContain('postgresql');
+    expect(serializedBody).not.toContain('db.internal');
   });
 
   it('normalizes invalid tokens without exposing verifier details', async () => {

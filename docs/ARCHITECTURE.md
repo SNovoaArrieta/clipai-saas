@@ -7,7 +7,7 @@
 | Documento | 02 — Architecture Foundation |
 | Versión | 0.3 |
 | Estado | Aprobado como arquitectura objetivo inicial |
-| Estado de implementación | Parcial — fundación del servidor y límite de identidad |
+| Estado de implementación | Parcial — identidad y persistencia personal |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
@@ -249,10 +249,19 @@ lógica.
 
 ## 9. Responsabilidad de la base de datos y propiedad de datos
 
-PostgreSQL será el system of record. Solo el backend accederá a la base de
-datos; ni el navegador ni los proveedores externos tendrán acceso directo.
-Prisma es el ORM planificado, pero su schema y el diseño físico de tablas
-permanecen fuera del alcance de esta fase.
+PostgreSQL es el system of record. Solo el backend accede a la base de datos;
+ni el navegador ni los proveedores externos tienen acceso directo. Prisma ORM
+7 usa el adapter oficial `PrismaPg`, un pool por proceso y un cliente generado
+en una ruta explícita ESM. El schema físico actual contiene exclusivamente
+`User` y `Workspace`; el resto del catálogo permanece fuera de esta tarea.
+
+El flujo implementado es `IdentityVerifier → IdentityProvisioner → Prisma`.
+Una transacción hace upsert de `User` por `authSubject` y de `Workspace` por
+`ownerUserId`. Las restricciones únicas, la foreign key real y el reintento
+limitado forman la estrategia de idempotencia; su comportamiento concurrente
+continúa pendiente de verificación contra PostgreSQL real. El shutdown cierra
+HTTP, Prisma y el pool una sola vez. Las migraciones son explícitas y no se
+ejecutan durante install, build, tests unitarios o arranque.
 
 El modelo conceptual incluye:
 

@@ -7,7 +7,7 @@
 | Documento | `06 — Security Foundation` |
 | Versión | `0.3` |
 | Estado | `Approved as initial security baseline` |
-| Estado de implementación | `Partial — identity boundary implemented` |
+| Estado de implementación | `Partial — identity persistence implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
@@ -239,8 +239,10 @@ verificación antes de su release.
 Supabase Auth está `Approved` como proveedor inicial de identidad. El backend ya
 acepta Bearer access tokens y verifica criptográficamente JWTs asimétricos
 mediante el JWKS público fijo del proyecto, issuer, audience, expiración y
-claims temporales. Solo conserva `authSubject` y un email opcional validado en
-el contexto del request; no almacena tokens ni passwords.
+claims temporales. `authSubject` se persiste como UUID privado y único para
+resolver un `User.id` interno; un email validado es opcional y nunca se usa para
+identidad o autorización. No almacena tokens ni passwords y `/api/v1/me` no
+expone `authSubject`.
 
 La Internal Alpha requerirá que el proyecto Supabase real complete el sistema
 de JWT Signing Keys asimétricas. La implementación admite solo `ES256` y
@@ -251,8 +253,9 @@ y configuración del proyecto real siguen pendientes de verificación.
 
 El frontend de sesión, refresh, revocación, recuperación, logout, controles de
 abuso, CORS/CSRF y pruebas con un proyecto real permanecen
-`Requirement pending detail`. Tampoco existen todavía el mapeo persistido a
-`User`, la resolución de `Workspace` ni autorización de recursos.
+`Requirement pending detail`. El mapeo persistido a `User` y la resolución de
+su único `Workspace` personal ya existen. La autorización de recursos,
+incluido el aislamiento de Projects, continúa sin implementar.
 
 Independientemente del mecanismo elegido:
 
@@ -804,8 +807,12 @@ no cambia su estado ni resuelve las decisiones `Deferred`.
 | `Control implemented` | Existe código o configuración revisada que aplica el requisito. |
 | `Control verified` | Pruebas o evidencia operativa demuestran que funciona, incluidos casos negativos. |
 
-La verificación JWT y su middleware están `Control implemented / locally
-verified`. Los demás elementos del flujo conservan sus estados anteriores.
+La verificación JWT, su middleware y el provisioning interno están
+`Control implemented / locally verified` mediante tests unitarios. Las nueve
+pruebas PostgreSQL de idempotencia, concurrencia, foreign key y unicidad están
+creadas, pero no se ejecutaron al no existir `TEST_DATABASE_URL`; por tanto esos
+controles no se presentan todavía como verificados contra PostgreSQL real. Los
+demás elementos del flujo conservan sus estados anteriores.
 
 ### Criterios previos a completar el vertical slice
 
@@ -813,7 +820,7 @@ verified`. Los demás elementos del flujo conservan sus estados anteriores.
 | --- | --- | --- |
 | Autenticación | Supabase Auth; registro, login, recuperación y validación backend de tokens; nunca passwords en ClipAI | `JWT verification implemented / remaining lifecycle pending` |
 | Sesiones | Rechazo de token ausente, inválido, expirado o revocado; transporte, CSRF/CORS, logout y recuperación probados | `Requirement pending detail` |
-| Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Requirement defined` |
+| Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Personal provisioning implemented / resource isolation pending` |
 | Upload | Solo MP4, MOV, MP3 y WAV; MIME real, tamaño, duración, frecuencia, archivo incompleto y contenido malicioso se tratan explícitamente | `Decision approved / Requirement defined` |
 | Object storage | Bucket privado S3-compatible; claves opacas aisladas; URLs firmadas mínimas; sin acceso público; lifecycle de objetos fallidos | `Decision approved / Requirement defined` |
 | Jobs | Idempotencia, un efecto por transición, retries acotados, timeout, cancelación y recuperación sin doble consumo | `Requirement defined` |

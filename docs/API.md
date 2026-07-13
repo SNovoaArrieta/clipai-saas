@@ -7,7 +7,7 @@
 | Documento | `05 — API Foundation` |
 | Versión | `0.3` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — server foundation and identity boundary` |
+| Estado de implementación | `Partial — identity persistence implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
@@ -16,8 +16,9 @@ ClipAI podrá consumir cuando se autorice la construcción del MVP. Establece
 convenciones REST, contratos preliminares, límites de seguridad y el
 comportamiento observable del procesamiento asíncrono.
 
-La fundación del servidor, `GET /health` y la primera frontera protegida de
-identidad están implementadas. El resto de rutas de dominio continúa en estado
+La fundación del servidor, `GET /health`, la frontera protegida de identidad y
+el provisioning persistido de `User` y `Workspace` personal están
+implementados. El resto de rutas de dominio continúa en estado
 `Draft / Not implemented`; este documento no crea una API pública para terceros
 ni presenta el SaaS completo como construido.
 
@@ -375,25 +376,35 @@ Todos los domain endpoints de esta sección tienen estado
 
 | Estado | Método y ruta | Auth | Request | Response | Success |
 | --- | --- | --- | --- | --- | --- |
-| `Implemented — identity projection` | `GET /api/v1/me` | Required | Sin body | `AuthenticatedIdentity` | `200` |
+| `Implemented — internal identity projection` | `GET /api/v1/me` | Required | Sin body | `User` y `Workspace` internos | `200` |
 
-Mientras no existan `User` y `Workspace` persistidos, `GET /api/v1/me` devuelve
-únicamente la proyección temporal verificada:
+Después de verificar el Bearer token, `GET /api/v1/me` crea o recupera de forma
+atómica el `User` interno y su único `Workspace` personal. Devuelve únicamente
+la proyección interna:
 
 ```json
 {
   "data": {
-    "authSubject": "123e4567-e89b-42d3-a456-426614174000",
-    "email": "user@example.com"
+    "user": {
+      "id": "7fb91c19-15de-4c33-9466-2fa72d541b35",
+      "email": "user@example.com"
+    },
+    "workspace": {
+      "id": "d281ed0c-2201-4ca5-8d9f-381ca4324618"
+    }
   }
 }
 ```
 
-`email` se omite cuando el claim verificado no está presente o no cumple la
-validación mínima. No se devuelven token, claims completos, issuer, audience,
-roles, metadata, headers JWT o key identifiers. `authSubject` es una excepción
-transitoria y explícita al contrato objetivo: la siguiente etapa deberá mapearlo
-a `User.id` y `Workspace` internos sin aceptar este campo como autorización.
+`email` se omite cuando no existe un valor almacenado. Un email válido del token
+actualiza el mismo usuario; su ausencia no borra uno anterior. No se devuelven
+`authSubject`, `ownerUserId`, token, claims completos, issuer, audience, roles,
+metadata, timestamps, headers JWT o key identifiers.
+
+Tras autenticación válida, una persistencia no configurada responde
+`503 PERSISTENCE_NOT_CONFIGURED`; una indisponibilidad temporal responde
+`503 PERSISTENCE_UNAVAILABLE`. Los errores inesperados usan
+`500 INTERNAL_ERROR` sin exponer Prisma, SQL, constraints o conexión.
 
 ### Projects
 
@@ -1298,6 +1309,8 @@ backoff máximo y timeout de UX permanecen pendientes de medición.
 | `RATE_LIMIT_EXCEEDED` | `429` | Se excedió una política de rate limit. |
 | `INTERNAL_ERROR` | `500` | Fallo inesperado sin detalles internos. |
 | `SERVICE_UNAVAILABLE` | `503` | Capacidad esencial temporalmente no disponible. |
+| `PERSISTENCE_NOT_CONFIGURED` | `503` | Persistencia ausente en un entorno que permite mantener health activo. |
+| `PERSISTENCE_UNAVAILABLE` | `503` | PostgreSQL no está disponible temporalmente. |
 
 ### Safe ProcessingJob codes
 
@@ -1394,20 +1407,21 @@ Estado real del repositorio al publicar esta versión:
 | Área | Estado |
 | --- | --- |
 | 16 domain endpoints restantes bajo `/api/v1` | `Draft / Not implemented` |
-| `GET /api/v1/me` | `Implemented — verified identity projection` |
+| `GET /api/v1/me` | `Implemented — internal User and Workspace projection` |
 | `GET /health/live` | `Planned Phase 0 / Not implemented` |
 | `GET /health/ready` | `Planned Phase 0 / Not implemented` |
 | JWT identity verification | `Implemented and locally verified` |
 | Session lifecycle | `Not implemented` |
 | Express application y routes | `Partially implemented` |
-| PostgreSQL, Prisma schema y migrations | `Not implemented` |
+| PostgreSQL, Prisma schema y migrations | `Partially implemented — User and Workspace only` |
 | ProcessingJob worker y queue integration | `Not implemented` |
 | Usage reservations y ledger | `Not implemented` |
 
-`client/` continúa sin aplicación y `server/` contiene solo la fundación de la
-Internal Alpha y la frontera de identidad. Este documento no debe usarse para
-afirmar que el producto ya persiste usuarios, resuelve workspaces, procesa
-videos o cobra uso.
+`client/` continúa sin aplicación. `server/` persiste únicamente `User` y
+`Workspace` personal; no procesa videos, no implementa autorización de
+Projects y no cobra uso. La suite unitaria pasa localmente; las nueve pruebas
+PostgreSQL están creadas pero no se ejecutaron porque no existe una base de
+prueba configurada.
 
 ## 20. Open API decisions
 

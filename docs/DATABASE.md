@@ -5,9 +5,9 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `04 — Data Model Foundation` |
-| Versión | `0.2` |
+| Versión | `0.3` |
 | Estado | `Approved as initial conceptual model` |
-| Estado de implementación | `Not implemented` |
+| Estado de implementación | `Partial — User and personal Workspace implemented` |
 | Fase | Fase 0 — Foundation |
 | Última actualización | 2026-07-13 |
 
@@ -15,10 +15,11 @@ Este documento define el modelo de datos conceptual inicial de ClipAI. Su
 propósito es establecer vocabulario, ownership, relaciones, ciclos de vida e
 invariantes antes de diseñar un schema físico.
 
-PostgreSQL será el system of record y Prisma es el ORM planificado, pero este
-documento no crea ni aprueba un schema de Prisma, migraciones, tipos físicos,
-vendors ni detalles internos de una librería de queue. Los nombres aquí
-descritos tampoco constituyen todavía un contrato público de API.
+PostgreSQL es el system of record y Prisma ORM 7 implementa el primer schema
+físico, limitado a `User` y `Workspace`. Las demás entidades, los detalles de
+una futura librería de queue y los controles de recursos privados continúan
+siendo conceptuales. Los nombres aquí descritos tampoco constituyen por sí
+solos un contrato público de API.
 
 ## 2. Principios del modelo de datos
 
@@ -120,6 +121,11 @@ longitudes, defaults ni nombres definitivos de índices.
   provider.
 - **Eliminación:** soft-delete y anonymization. El hard-delete queda restringido
   hasta resolver el workspace, evidencias y registros operativos dependientes.
+- **Estado implementado:** `id` y `authSubject` son UUID; `authSubject` es
+  obligatorio, privado y único para el único provider autorizado en esta etapa.
+  `email` es opcional, no único y nunca participa en identidad o autorización.
+  `createdAt` y `updatedAt` se persisten. Los demás campos conceptuales siguen
+  diferidos.
 
 ### `Workspace`
 
@@ -138,6 +144,14 @@ longitudes, defaults ni nombres definitivos de índices.
 - **Eliminación:** soft-delete y anonymization inicial. El hard-delete será un
   workflow controlado que respetará retención y ledger; no habrá cascade
   inmediata e indiscriminada.
+- **Estado implementado:** `id` y `ownerUserId` son UUID; `ownerUserId` es
+  obligatorio, único y una foreign key real hacia `User.id`. `name` usa el
+  default neutral `Personal workspace`, `workspaceType` solo admite `personal`
+  y la eliminación del owner usa `RESTRICT`. La transacción de provisioning
+  crea o recupera el par de forma idempotente. La base de datos garantiza como
+  máximo un workspace por usuario mediante `UNIQUE(ownerUserId)`; la creación
+  operativa del workspace depende del flujo transaccional y la afirmación de
+  “exactamente uno” continúa pendiente de verificación contra PostgreSQL real.
 
 ### `Project`
 

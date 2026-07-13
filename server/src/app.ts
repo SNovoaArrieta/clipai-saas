@@ -4,11 +4,13 @@ import express, {
 } from 'express';
 
 import type { IdentityVerifier } from './identity/identity-verifier.js';
+import type { IdentityProvisioner } from './provisioning/identity-provisioner.js';
 import { createApiRouter } from './routes/index.js';
 import { AppError } from './shared/errors/app-error.js';
 
 export interface AppDependencies {
   readonly identityVerifier?: IdentityVerifier;
+  readonly identityProvisioner?: IdentityProvisioner;
 }
 
 const notFoundHandler: RequestHandler = (request, response, next) => {
@@ -38,7 +40,7 @@ const errorHandler: ErrorRequestHandler = (
 
   response.status(500).json({
     error: {
-      code: 'INTERNAL_SERVER_ERROR',
+      code: 'INTERNAL_ERROR',
       message: 'Internal server error',
     },
   });
@@ -49,7 +51,7 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   app.disable('x-powered-by');
   app.use(express.json());
-  app.use(createApiRouter(dependencies.identityVerifier));
+  app.use(createApiRouter(dependencies));
   app.use(notFoundHandler);
   app.use(errorHandler);
 

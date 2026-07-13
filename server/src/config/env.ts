@@ -8,6 +8,7 @@ interface BaseEnvConfig {
   readonly nodeEnv: NodeEnvironment;
   readonly port: number;
   readonly supabaseJwtAudience: string;
+  readonly databaseUrl?: string;
 }
 
 export interface DisabledAuthEnvConfig extends BaseEnvConfig {
@@ -120,6 +121,40 @@ function parseAudience(value: string | undefined): string {
   return candidate;
 }
 
+function parseDatabaseUrl(
+  value: string | undefined,
+  nodeEnvironment: NodeEnvironment,
+): string | undefined {
+  if (value === undefined || value.length === 0) {
+    if (nodeEnvironment === 'production') {
+      throw new Error(
+        'Missing DATABASE_URL: PostgreSQL persistence is required in production.',
+      );
+    }
+
+    return undefined;
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('Invalid DATABASE_URL: expected a PostgreSQL URL.');
+  }
+
+  if (
+    !['postgres:', 'postgresql:'].includes(url.protocol) ||
+    url.hostname.length === 0 ||
+    url.pathname.length <= 1 ||
+    url.hash.length > 0
+  ) {
+    throw new Error('Invalid DATABASE_URL: expected a PostgreSQL URL.');
+  }
+
+  return value;
+}
+
 export function loadEnv(
   environment: NodeJS.ProcessEnv = process.env,
 ): EnvConfig {
@@ -127,6 +162,8 @@ export function loadEnv(
   const authMode = parseAuthMode(environment.AUTH_MODE, nodeEnv);
   const port = parsePort(environment.PORT, nodeEnv);
   const supabaseJwtAudience = parseAudience(environment.SUPABASE_JWT_AUDIENCE);
+  const databaseUrl = parseDatabaseUrl(environment.DATABASE_URL, nodeEnv);
+  const databaseConfig = databaseUrl === undefined ? {} : { databaseUrl };
 
   if (authMode === 'supabase') {
     return {
@@ -135,8 +172,15 @@ export function loadEnv(
       authMode,
       supabaseUrl: parseSupabaseUrl(environment.SUPABASE_URL),
       supabaseJwtAudience,
+      ...databaseConfig,
     };
   }
 
-  return { nodeEnv, port, authMode, supabaseJwtAudience };
+  return {
+    nodeEnv,
+    port,
+    authMode,
+    supabaseJwtAudience,
+    ...databaseConfig,
+  };
 }
