@@ -25,10 +25,18 @@ implementada.
 
 - Las 40 pruebas unitarias se ejecutan sin PostgreSQL, Supabase real ni acceso a
   Internet.
-- La migración fue revisada y Prisma valida y genera el cliente sin conexión a
-  una base de datos.
-- La migración y las nueve pruebas PostgreSQL no se ejecutaron porque el entorno
-  no dispone de `TEST_DATABASE_URL` ni servicio PostgreSQL local.
+- La migración `20260713180000_identity_foundation` fue aplicada mediante
+  `db:migrate:deploy` a una base PostgreSQL 18.4 local exclusiva y
+  `db:migrate:status` confirmó que el schema está actualizado.
+- Las tablas, la foreign key, los índices y las restricciones se verificaron
+  directamente en PostgreSQL. Las nueve pruebas de integración pasaron tres
+  veces; cada ejecución repitió el caso de ocho solicitudes concurrentes sin
+  duplicados.
+- `/health` y `/api/v1/me` respondieron correctamente mediante HTTP con
+  autenticación de prueba inyectada y persistencia real. La limpieza eliminó
+  solo los datos sintéticos y conservó el schema y `_prisma_migrations`.
+- Esta validación es exclusivamente local; no valida producción ni servicios
+  cloud.
 - `npm audit` reporta tres hallazgos moderados en tooling de desarrollo, desde
   `@hono/node-server` transitivo de `@prisma/dev`; la única corrección propuesta
   por npm baja a Prisma 6 y no se aplicó porque esta tarea requiere Prisma 7.

@@ -702,7 +702,7 @@ Estado real del repositorio al publicar esta versión:
 | Supabase JWT verification | `Control implemented / locally verified` |
 | Session lifecycle | `Requirement pending detail` |
 | Autorización por Workspace | `Designed / Not implemented` |
-| PostgreSQL, Prisma y migrations | `Not implemented` |
+| PostgreSQL, Prisma y migrations | `Control implemented / locally verified` |
 | Worker y queue | `Not implemented` |
 | OpenAI para IA y transcripción | `Approved initial provider / Not implemented` |
 | Object storage S3-compatible y upload flow | `Approved direction / Not implemented` |
@@ -809,10 +809,13 @@ no cambia su estado ni resuelve las decisiones `Deferred`.
 
 La verificación JWT, su middleware y el provisioning interno están
 `Control implemented / locally verified` mediante tests unitarios. Las nueve
-pruebas PostgreSQL de idempotencia, concurrencia, foreign key y unicidad están
-creadas, pero no se ejecutaron al no existir `TEST_DATABASE_URL`; por tanto esos
-controles no se presentan todavía como verificados contra PostgreSQL real. Los
-demás elementos del flujo conservan sus estados anteriores.
+pruebas PostgreSQL de idempotencia, concurrencia, foreign key y unicidad se
+ejecutaron tres veces contra una base local exclusiva; cada ejecución incluyó
+ocho solicitudes concurrentes y terminó sin datos sintéticos residuales. La
+migración, sus tablas, índices, restricciones y foreign key también se
+verificaron directamente en PostgreSQL. Esta evidencia es local y no valida
+ningún entorno productivo o cloud. Los demás elementos del flujo conservan sus
+estados anteriores.
 
 ### Criterios previos a completar el vertical slice
 

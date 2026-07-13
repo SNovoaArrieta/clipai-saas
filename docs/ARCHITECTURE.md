@@ -259,9 +259,10 @@ El flujo implementado es `IdentityVerifier → IdentityProvisioner → Prisma`.
 Una transacción hace upsert de `User` por `authSubject` y de `Workspace` por
 `ownerUserId`. Las restricciones únicas, la foreign key real y el reintento
 limitado forman la estrategia de idempotencia; su comportamiento concurrente
-continúa pendiente de verificación contra PostgreSQL real. El shutdown cierra
-HTTP, Prisma y el pool una sola vez. Las migraciones son explícitas y no se
-ejecutan durante install, build, tests unitarios o arranque.
+fue verificado localmente contra PostgreSQL real con ocho solicitudes
+concurrentes y sin duplicados. El shutdown cierra HTTP, Prisma y el pool una
+sola vez. Las migraciones son explícitas y no se ejecutan durante install,
+build, tests unitarios o arranque.
 
 El modelo conceptual incluye:
 

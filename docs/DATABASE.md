@@ -150,8 +150,10 @@ longitudes, defaults ni nombres definitivos de índices.
   y la eliminación del owner usa `RESTRICT`. La transacción de provisioning
   crea o recupera el par de forma idempotente. La base de datos garantiza como
   máximo un workspace por usuario mediante `UNIQUE(ownerUserId)`; la creación
-  operativa del workspace depende del flujo transaccional y la afirmación de
-  “exactamente uno” continúa pendiente de verificación contra PostgreSQL real.
+  operativa del workspace depende del flujo transaccional. La migración
+  `20260713180000_identity_foundation` y las nueve pruebas de integración
+  verificaron localmente contra PostgreSQL real que se conserva exactamente un
+  workspace personal por usuario, incluso con ocho solicitudes concurrentes.
 
 ### `Project`
 
