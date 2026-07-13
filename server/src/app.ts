@@ -3,8 +3,13 @@ import express, {
   type RequestHandler,
 } from 'express';
 
-import { apiRouter } from './routes/index.js';
+import type { IdentityVerifier } from './identity/identity-verifier.js';
+import { createApiRouter } from './routes/index.js';
 import { AppError } from './shared/errors/app-error.js';
+
+export interface AppDependencies {
+  readonly identityVerifier?: IdentityVerifier;
+}
 
 const notFoundHandler: RequestHandler = (request, response, next) => {
   void request;
@@ -39,12 +44,12 @@ const errorHandler: ErrorRequestHandler = (
   });
 };
 
-export function createApp() {
+export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
 
   app.disable('x-powered-by');
   app.use(express.json());
-  app.use(apiRouter);
+  app.use(createApiRouter(dependencies.identityVerifier));
   app.use(notFoundHandler);
   app.use(errorHandler);
 

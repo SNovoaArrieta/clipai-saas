@@ -1,11 +1,25 @@
 const nodeEnvironments = ['development', 'test', 'production'] as const;
+const authModes = ['disabled', 'supabase'] as const;
 
 export type NodeEnvironment = (typeof nodeEnvironments)[number];
+export type AuthMode = (typeof authModes)[number];
 
-export interface EnvConfig {
+interface BaseEnvConfig {
   readonly nodeEnv: NodeEnvironment;
   readonly port: number;
+  readonly supabaseJwtAudience: string;
 }
+
+export interface DisabledAuthEnvConfig extends BaseEnvConfig {
+  readonly authMode: 'disabled';
+}
+
+export interface SupabaseAuthEnvConfig extends BaseEnvConfig {
+  readonly authMode: 'supabase';
+  readonly supabaseUrl: string;
+}
+
+export type EnvConfig = DisabledAuthEnvConfig | SupabaseAuthEnvConfig;
 
 function parseNodeEnvironment(value: string | undefined): NodeEnvironment {
   const candidate = value ?? 'development';
@@ -39,13 +53,90 @@ function parsePort(
   return port;
 }
 
+function parseAuthMode(
+  value: string | undefined,
+  nodeEnvironment: NodeEnvironment,
+): AuthMode {
+  const candidate = value ?? 'disabled';
+
+  if (!authModes.includes(candidate as AuthMode)) {
+    throw new Error(
+      `Invalid AUTH_MODE: expected one of ${authModes.join(', ')}.`,
+    );
+  }
+
+  if (candidate === 'disabled' && nodeEnvironment === 'production') {
+    throw new Error(
+      'Invalid AUTH_MODE: authentication cannot be disabled in production.',
+    );
+  }
+
+  return candidate as AuthMode;
+}
+
+function parseSupabaseUrl(value: string | undefined): string {
+  if (value === undefined || value.length === 0) {
+    throw new Error('Missing SUPABASE_URL: an HTTPS project URL is required.');
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('Invalid SUPABASE_URL: expected an HTTPS project URL.');
+  }
+
+  if (
+    url.protocol !== 'https:' ||
+    url.username.length > 0 ||
+    url.password.length > 0 ||
+    url.search.length > 0 ||
+    url.hash.length > 0 ||
+    url.pathname !== '/'
+  ) {
+    throw new Error(
+      'Invalid SUPABASE_URL: expected an HTTPS origin without credentials, path, query, or fragment.',
+    );
+  }
+
+  return url.origin;
+}
+
+function parseAudience(value: string | undefined): string {
+  const candidate = value ?? 'authenticated';
+
+  if (
+    candidate.length === 0 ||
+    candidate.length > 128 ||
+    candidate.trim() !== candidate ||
+    /\s/.test(candidate)
+  ) {
+    throw new Error(
+      'Invalid SUPABASE_JWT_AUDIENCE: expected a non-empty value.',
+    );
+  }
+
+  return candidate;
+}
+
 export function loadEnv(
   environment: NodeJS.ProcessEnv = process.env,
 ): EnvConfig {
   const nodeEnv = parseNodeEnvironment(environment.NODE_ENV);
+  const authMode = parseAuthMode(environment.AUTH_MODE, nodeEnv);
+  const port = parsePort(environment.PORT, nodeEnv);
+  const supabaseJwtAudience = parseAudience(environment.SUPABASE_JWT_AUDIENCE);
 
-  return {
-    nodeEnv,
-    port: parsePort(environment.PORT, nodeEnv),
-  };
+  if (authMode === 'supabase') {
+    return {
+      nodeEnv,
+      port,
+      authMode,
+      supabaseUrl: parseSupabaseUrl(environment.SUPABASE_URL),
+      supabaseJwtAudience,
+    };
+  }
+
+  return { nodeEnv, port, authMode, supabaseJwtAudience };
 }

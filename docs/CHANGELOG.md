@@ -4,6 +4,36 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Supabase identity boundary
+
+### Added
+
+- Verificación criptográfica de Supabase access tokens mediante `jose`, JWKS
+  público, issuer, audience, expiración y claims temporales.
+- Validación estricta de `role=authenticated` y `sub` con formato UUID para
+  tokens Supabase; `anon`, `service_role`, roles ausentes o inválidos se
+  rechazan de forma uniforme.
+- Límites explícitos del JWKS remoto: timeout de 5 segundos, cooldown de 30
+  segundos y caché máxima de 10 minutos mediante `jose`.
+- Contratos provider-neutral `IdentityVerifier` y `AuthenticatedIdentity`,
+  extracción estricta de `Authorization: Bearer` y middleware de autenticación.
+- Ruta protegida `GET /api/v1/me` con una proyección temporal y mínima de la
+  identidad verificada.
+- Tests HTTP y criptográficos con claves y JWKS locales, sin red externa ni
+  credenciales reales.
+
+### Status
+
+- No existen todavía `User` o `Workspace` persistidos, login, registro,
+  recuperación, logout, revocación ni lifecycle completo de sesión.
+- No se añadieron Supabase SDK, JWT secret, `service_role`, base de datos,
+  uploads ni integración de IA.
+- La integración real requiere JWT Signing Keys asimétricas (`ES256` o `RS256`)
+  y no acepta tokens legacy `HS256`; el proyecto real continúa pendiente de
+  configuración y verificación.
+- La verificación local no equivale a autenticación completa ni a validación
+  comercial del producto.
+
 ## 2026-07-13 — Product-first strategy and Internal Alpha
 
 ### Changed

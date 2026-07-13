@@ -5,10 +5,10 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | 02 — Architecture Foundation |
-| Versión | 0.2 |
+| Versión | 0.3 |
 | Estado | Aprobado como arquitectura objetivo inicial |
-| Estado de implementación | No implementada |
-| Fase | Fase 0 — Foundation |
+| Estado de implementación | Parcial — fundación del servidor y límite de identidad |
+| Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
 Este documento define la arquitectura objetivo inicial del MVP de ClipAI y los
@@ -528,26 +528,31 @@ El MVP inicial no buscará:
 
 ## 18. Arquitectura implementada en Fase 0 frente a arquitectura futura
 
-### Estado actual de Fase 0
+### Estado actual de Internal Alpha
 
-- `client/` y `server/` existen como carpetas, pero no contienen una
-  aplicación implementada.
-- No existen runtime, dependencias, endpoints, schema Prisma, base de datos,
-  módulos, worker, jobs, autenticación, billing, storage ni integraciones de
-  producción.
-- La actividad vigente es de documentación y aprobación de fundamentos.
+- `server/` contiene una aplicación Express/TypeScript ejecutable, `GET /health`
+  y el límite `Bearer token → IdentityVerifier → AuthenticatedIdentity`.
+- `SupabaseIdentityVerifier` verifica firma asimétrica mediante el JWKS público
+  fijo del proyecto, issuer, audience, expiración y claims temporales. Los tests
+  usan un JWKS local e inyección directa, sin red externa ni credenciales.
+- La integración real exige un proyecto Supabase con JWT Signing Keys
+  asimétricas habilitadas. Solo se admiten `ES256` y `RS256`; `HS256`, el legacy
+  JWT secret y API keys privilegiadas quedan fuera de este límite. Este
+  prerrequisito no afirma que el proyecto real ya exista o esté configurado.
+- `GET /api/v1/me` expone solo una proyección temporal de identidad verificada.
+- No existen `User` o `Workspace` persistidos, schema Prisma, base de datos,
+  worker, jobs, billing, storage, uploads ni integraciones de IA.
+- `client/` continúa sin aplicación implementada.
 - `legacy/clipai-youtube.jsx` es un prototipo aislado. Sus llamadas directas a
   IA desde el navegador, búsqueda de transcripts, timestamps estimados y
   scoring de viralidad no representan la arquitectura aprobada.
 
 ### Arquitectura futura del MVP
 
-Todo componente, entidad, flujo, estado o despliegue aplicable al primer MVP es
-arquitectura objetivo para una fase futura de construcción. Los elementos
+Los componentes restantes continúan como arquitectura objetivo. Los elementos
 marcados como futuros —incluido billing— no pertenecen al primer MVP. Ninguna
-capacidad deberá describirse en documentación, demos ni comunicación como ya
-implementada hasta que exista, esté probada y haya superado sus criterios de
-aceptación.
+capacidad adicional deberá describirse como implementada hasta que exista, esté
+probada y haya superado sus criterios de aceptación.
 
 El soporte futuro para equipos se preserva mediante `Workspace`, pero no se
 implementarán memberships, invitaciones ni roles en el MVP inicial sin una

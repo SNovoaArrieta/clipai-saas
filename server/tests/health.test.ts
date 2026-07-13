@@ -45,12 +45,67 @@ describe('unknown routes', () => {
 
 describe('environment configuration', () => {
   it('uses safe development defaults', () => {
-    expect(loadEnv({})).toEqual({ nodeEnv: 'development', port: 3000 });
+    expect(loadEnv({})).toEqual({
+      nodeEnv: 'development',
+      port: 3000,
+      authMode: 'disabled',
+      supabaseJwtAudience: 'authenticated',
+    });
   });
 
   it('rejects invalid values clearly', () => {
     expect(() => loadEnv({ NODE_ENV: 'staging' })).toThrow('Invalid NODE_ENV');
     expect(() => loadEnv({ PORT: '70000' })).toThrow('Invalid PORT');
-    expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow('Missing PORT');
+    expect(() => loadEnv({ AUTH_MODE: 'fake' })).toThrow('Invalid AUTH_MODE');
+    expect(() => loadEnv({ AUTH_MODE: 'supabase' })).toThrow(
+      'Missing SUPABASE_URL',
+    );
+    expect(() =>
+      loadEnv({ SUPABASE_JWT_AUDIENCE: 'invalid audience' }),
+    ).toThrow('Invalid SUPABASE_JWT_AUDIENCE');
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        AUTH_MODE: 'supabase',
+        SUPABASE_URL: 'https://project.supabase.co',
+      }),
+    ).toThrow('Missing PORT');
+  });
+
+  it('rejects disabled authentication in production', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        PORT: '3000',
+        AUTH_MODE: 'disabled',
+      }),
+    ).toThrow('authentication cannot be disabled in production');
+  });
+
+  it('validates and normalizes Supabase authentication configuration', () => {
+    expect(
+      loadEnv({
+        AUTH_MODE: 'supabase',
+        SUPABASE_URL: 'https://project.supabase.co/',
+      }),
+    ).toEqual({
+      nodeEnv: 'development',
+      port: 3000,
+      authMode: 'supabase',
+      supabaseUrl: 'https://project.supabase.co',
+      supabaseJwtAudience: 'authenticated',
+    });
+
+    for (const invalidUrl of [
+      'http://project.supabase.co',
+      'https://user:password@project.supabase.co',
+      'https://project.supabase.co/path',
+      'https://project.supabase.co?query=value',
+      'https://project.supabase.co#fragment',
+    ]) {
+      expect(() =>
+        loadEnv({ AUTH_MODE: 'supabase', SUPABASE_URL: invalidUrl }),
+      ).toThrow('Invalid SUPABASE_URL');
+    }
   });
 });

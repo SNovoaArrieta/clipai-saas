@@ -5,10 +5,10 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `05 — API Foundation` |
-| Versión | `0.2` |
+| Versión | `0.3` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Not implemented` |
-| Fase | Fase 0 — Foundation |
+| Estado de implementación | `Partial — server foundation and identity boundary` |
+| Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
 Este documento define el diseño inicial de la API HTTP que el frontend de
@@ -16,10 +16,10 @@ ClipAI podrá consumir cuando se autorice la construcción del MVP. Establece
 convenciones REST, contratos preliminares, límites de seguridad y el
 comportamiento observable del procesamiento asíncrono.
 
-No implementa endpoints, no crea una API pública para terceros y no autoriza la
-construcción del SaaS. Todas las rutas de dominio descritas aquí están en estado
-`Draft / Not implemented`. Los health checks están planificados para Fase 0,
-pero tampoco existen todavía.
+La fundación del servidor, `GET /health` y la primera frontera protegida de
+identidad están implementadas. El resto de rutas de dominio continúa en estado
+`Draft / Not implemented`; este documento no crea una API pública para terceros
+ni presenta el SaaS completo como construido.
 
 La documentación se escribe en español. Rutas, headers, campos, entidades,
 estados y códigos de error se mantienen en English para que puedan convertirse
@@ -80,15 +80,22 @@ de diseño revisable durante Fase 0, no un artefacto ejecutable.
 ## 4. Autenticación y contexto de workspace
 
 Todos los endpoints bajo `/api/v1` son privados y requieren una sesión válida,
-incluido `GET /api/v1/me`. Supabase Auth es el proveedor inicial aprobado; el
-transporte y lifecycle de sesión permanecen pendientes, por lo que los ejemplos
-omiten deliberadamente una credencial concreta.
+incluido `GET /api/v1/me`. La primera frontera implementada acepta únicamente
+`Authorization: Bearer <access-token>` y verifica JWTs de Supabase Auth mediante
+el JWKS público fijo del proyecto, issuer, audience y claims temporales. El
+frontend de sesión, refresh, revocación, logout, recuperación y demás lifecycle
+continúa pendiente.
 
-Para cada request privado, el backend futuro deberá:
+La integración real requiere que el proyecto Supabase tenga habilitado el
+sistema de JWT Signing Keys asimétricas. El backend acepta únicamente `ES256` y
+`RS256`; no verifica tokens `HS256` del sistema legacy ni utiliza el legacy JWT
+secret, `anon`, `service_role` o secret API keys como identidad de usuario.
 
-1. validar la sesión mediante el límite de autenticación elegido;
-2. resolver el `User` interno;
-3. resolver su `Workspace` personal;
+Para cada request privado, el backend deberá progresivamente:
+
+1. validar el access token mediante el límite de identidad implementado;
+2. resolver el `User` interno cuando exista persistencia;
+3. resolver su `Workspace` personal cuando exista persistencia;
 4. aplicar `workspaceId` a todas las lecturas y escrituras privadas; y
 5. comprobar que las relaciones entre recursos pertenecen al mismo workspace.
 
@@ -190,6 +197,11 @@ payloads crudos de providers ni datos pertenecientes a otro workspace.
 
 El mismo `code` conserva una semántica estable dentro de `v1`. `message` puede
 mejorar o localizarse más adelante y no debe usarse para branching.
+
+La fundación ejecutable todavía usa temporalmente
+`{ "error": { "code", "message" } }`, sin `requestId`. La alineación con el
+envelope objetivo y el tracing continúa pendiente y no se resuelve dentro del
+límite de identidad.
 
 ## 8. Request IDs y tracing
 
@@ -363,11 +375,25 @@ Todos los domain endpoints de esta sección tienen estado
 
 | Estado | Método y ruta | Auth | Request | Response | Success |
 | --- | --- | --- | --- | --- | --- |
-| `Draft / Not implemented` | `GET /api/v1/me` | Required | Sin body | `User` y su `Workspace` personal | `200` |
+| `Implemented — identity projection` | `GET /api/v1/me` | Required | Sin body | `AuthenticatedIdentity` | `200` |
 
-`GET /me` devuelve campos seguros: `user.id`, `email`, `displayName`,
-`accountStatus`, y `workspace.id`, `name`, `workspaceType`. No expone
-`authSubject`, tokens, secretos ni datos internos del provider.
+Mientras no existan `User` y `Workspace` persistidos, `GET /api/v1/me` devuelve
+únicamente la proyección temporal verificada:
+
+```json
+{
+  "data": {
+    "authSubject": "123e4567-e89b-42d3-a456-426614174000",
+    "email": "user@example.com"
+  }
+}
+```
+
+`email` se omite cuando el claim verificado no está presente o no cumple la
+validación mínima. No se devuelven token, claims completos, issuer, audience,
+roles, metadata, headers JWT o key identifiers. `authSubject` es una excepción
+transitoria y explícita al contrato objetivo: la siguiente etapa deberá mapearlo
+a `User.id` y `Workspace` internos sin aceptar este campo como autorización.
 
 ### Projects
 
@@ -1367,27 +1393,29 @@ Estado real del repositorio al publicar esta versión:
 
 | Área | Estado |
 | --- | --- |
-| 17 domain endpoints bajo `/api/v1` | `Draft / Not implemented` |
+| 16 domain endpoints restantes bajo `/api/v1` | `Draft / Not implemented` |
+| `GET /api/v1/me` | `Implemented — verified identity projection` |
 | `GET /health/live` | `Planned Phase 0 / Not implemented` |
 | `GET /health/ready` | `Planned Phase 0 / Not implemented` |
-| Authentication y session handling | `Not implemented` |
-| Express application y routes | `Not implemented` |
+| JWT identity verification | `Implemented and locally verified` |
+| Session lifecycle | `Not implemented` |
+| Express application y routes | `Partially implemented` |
 | PostgreSQL, Prisma schema y migrations | `Not implemented` |
 | ProcessingJob worker y queue integration | `Not implemented` |
 | Usage reservations y ledger | `Not implemented` |
 
-`client/` y `server/` no contienen aplicaciones productivas. Este documento no
-debe usarse para afirmar que ClipAI ya acepta requests, procesa videos o cobra
-uso. Cuando se implemente un endpoint, su estado deberá actualizarse solo
-después de contar con autorización, tests, seguridad y revisión del contrato.
+`client/` continúa sin aplicación y `server/` contiene solo la fundación de la
+Internal Alpha y la frontera de identidad. Este documento no debe usarse para
+afirmar que el producto ya persiste usuarios, resuelve workspaces, procesa
+videos o cobra uso.
 
 ## 20. Open API decisions
 
 Las siguientes decisiones permanecen abiertas y no deben inferirse de los
 ejemplos:
 
-1. Transporte de sesión con Supabase Auth, lifecycle, recuperación y controles
-   CSRF/CORS asociados.
+1. Lifecycle del Bearer access token con Supabase Auth, refresh, revocación,
+   logout, recuperación y controles CORS/CSRF asociados.
 2. Contrato de intención/finalización de upload, tamaños, duración, idiomas,
    expiración de handles y verificación de MP4, MOV, MP3 y WAV.
 3. Texto legal, `statementVersion`, valores de `authorizationBasis`, revocación

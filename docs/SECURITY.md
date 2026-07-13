@@ -5,10 +5,10 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `06 — Security Foundation` |
-| Versión | `0.2` |
+| Versión | `0.3` |
 | Estado | `Approved as initial security baseline` |
-| Estado de implementación | `Not implemented` |
-| Fase | Fase 0 — Foundation |
+| Estado de implementación | `Partial — identity boundary implemented` |
+| Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
 Este documento define la línea base de seguridad objetivo para el MVP de
@@ -236,11 +236,23 @@ verificación antes de su release.
 
 ## 7. Identidad, autenticación y sesiones
 
-Supabase Auth está `Approved` como proveedor inicial de identidad. El
-transporte de sesión, expiración, revocación, recuperación, controles de abuso,
-CSRF/CORS y lifecycle permanecen `Requirement pending detail`; no están
-implementados ni verificados. El backend validará tokens y mapeará la identidad
-externa a `User` y `Workspace`; no almacenará passwords.
+Supabase Auth está `Approved` como proveedor inicial de identidad. El backend ya
+acepta Bearer access tokens y verifica criptográficamente JWTs asimétricos
+mediante el JWKS público fijo del proyecto, issuer, audience, expiración y
+claims temporales. Solo conserva `authSubject` y un email opcional validado en
+el contexto del request; no almacena tokens ni passwords.
+
+La Internal Alpha requerirá que el proyecto Supabase real complete el sistema
+de JWT Signing Keys asimétricas. La implementación admite solo `ES256` y
+`RS256`, exige `role=authenticated` y un `sub` con formato UUID, y no verifica
+tokens legacy `HS256`. No requiere, almacena ni utiliza el legacy JWT secret,
+`anon`, `service_role` o secret API keys para autenticar usuarios. La existencia
+y configuración del proyecto real siguen pendientes de verificación.
+
+El frontend de sesión, refresh, revocación, recuperación, logout, controles de
+abuso, CORS/CSRF y pruebas con un proyecto real permanecen
+`Requirement pending detail`. Tampoco existen todavía el mapeo persistido a
+`User`, la resolución de `Workspace` ni autorización de recursos.
 
 Independientemente del mecanismo elegido:
 
@@ -682,8 +694,10 @@ Estado real del repositorio al publicar esta versión:
 | Área | Estado |
 | --- | --- |
 | Security Foundation | `Approved as initial security baseline` |
-| Frontend y API productivos | `Not implemented` |
-| Supabase Auth y sesiones | `Approved provider / Not implemented` |
+| Frontend productivo | `Not implemented` |
+| API de Internal Alpha | `Server foundation and identity route implemented` |
+| Supabase JWT verification | `Control implemented / locally verified` |
+| Session lifecycle | `Requirement pending detail` |
 | Autorización por Workspace | `Designed / Not implemented` |
 | PostgreSQL, Prisma y migrations | `Not implemented` |
 | Worker y queue | `Not implemented` |
@@ -693,12 +707,10 @@ Estado real del repositorio al publicar esta versión:
 | Logging, alerting y security scanning | `Deferred` |
 | Retention, deletion e incident policies | `Not approved` |
 
-`client/` y `server/` no contienen todavía aplicaciones productivas. La
-aprobación de esta foundation aprueba el baseline documental, no la seguridad
-del producto. Todos los controles técnicos permanecen `Not implemented` hasta
-que existan código o configuración, evidencia de prueba y revisión. Ningún
-control descrito debe reportarse como implementado antes de cumplir esas tres
-condiciones.
+`client/` continúa sin aplicación productiva y `server/` solo implementa la
+fundación de Internal Alpha y el límite de identidad descrito. La verificación
+local no certifica la seguridad del producto ni cubre lifecycle de sesión,
+revocación, persistencia, tenancy o autorización.
 
 ## 22. Security gates
 
@@ -792,14 +804,14 @@ no cambia su estado ni resuelve las decisiones `Deferred`.
 | `Control implemented` | Existe código o configuración revisada que aplica el requisito. |
 | `Control verified` | Pruebas o evidencia operativa demuestran que funciona, incluidos casos negativos. |
 
-Ningún elemento del flujo está todavía `Control implemented` ni `Control
-verified`.
+La verificación JWT y su middleware están `Control implemented / locally
+verified`. Los demás elementos del flujo conservan sus estados anteriores.
 
 ### Criterios previos a completar el vertical slice
 
 | Área | Decisión o requisito verificable | Estado actual |
 | --- | --- | --- |
-| Autenticación | Supabase Auth; registro, login, recuperación y validación backend de tokens; nunca passwords en ClipAI | `Decision approved / Requirement defined` |
+| Autenticación | Supabase Auth; registro, login, recuperación y validación backend de tokens; nunca passwords en ClipAI | `JWT verification implemented / remaining lifecycle pending` |
 | Sesiones | Rechazo de token ausente, inválido, expirado o revocado; transporte, CSRF/CORS, logout y recuperación probados | `Requirement pending detail` |
 | Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Requirement defined` |
 | Upload | Solo MP4, MOV, MP3 y WAV; MIME real, tamaño, duración, frecuencia, archivo incompleto y contenido malicioso se tratan explícitamente | `Decision approved / Requirement defined` |
