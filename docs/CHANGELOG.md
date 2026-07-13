@@ -4,6 +4,30 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Product-first strategy and Internal Alpha
+
+### Changed
+
+- La Product Owner aprobó una estrategia product-first y autorizó la Fase 1 —
+  Internal Alpha después del cierre documental de la Fase 0.
+- La investigación externa, las entrevistas, la prospección, el contacto con
+  aliados o posibles clientes y la selección definitiva del ICP quedan
+  aplazados hasta contar con una Demonstrable Alpha.
+- La etapa previa medirá internamente funcionamiento, errores, calidad, tiempo,
+  coste, utilidad práctica y seguridad básica con contenido propio, sintético o
+  expresamente autorizado.
+- `ClipAI` se utiliza únicamente como nombre provisional interno, nombre del
+  repositorio y codename de desarrollo; no es un nombre comercial definitivo ni
+  una marca o identidad pública aprobada. La empresa continúa sin nombre
+  definitivo.
+
+### Status
+
+- Construir la Internal Alpha no equivale a validación comercial ni demuestra
+  demanda, intención de pago o product-market fit.
+- Las evidencias comerciales pendientes conservan sus estados y el plan de
+  validación se mantiene sin ejecutar hasta después de la Demonstrable Alpha.
+
 ## 2026-07-13 — Product validation kit
 
 ### Added

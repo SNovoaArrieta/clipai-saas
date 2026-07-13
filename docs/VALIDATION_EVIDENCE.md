@@ -12,6 +12,12 @@ Este índice conecta criterios pendientes de Fase 0 con evidencia revisable. No
 contiene resultados aceptados. Un documento o plantilla existente no equivale a
 evidencia recopilada.
 
+La recolección de evidencia comercial queda aplazada hasta la fase de External
+Product Validation, posterior a una Demonstrable Alpha. Las mediciones técnicas
+internas podrán informar esa preparación, pero no cambian por sí solas los
+estados comerciales: todos los criterios de este índice permanecen
+`Not started` hasta que exista actividad externa trazable y revisada.
+
 ## Estados permitidos
 
 | Estado                | Significado                                                         |
@@ -73,5 +79,6 @@ significa ocultar resultados; exige conservarlos y documentar la decisión.
 - No marcar `Accepted` por crear una plantilla o completar una sola actividad.
 - Reflejar un criterio como cumplido en `PRODUCT.md` solo después de revisión y
   aceptación explícitas.
-- Cerrar Fase 0 requiere revisar el conjunto del gate; aceptar una evidencia no
-  autoriza por sí sola Fase 1.
+- La autorización de Internal Alpha no acepta ninguna evidencia comercial. El
+  conjunto deberá revisarse antes de superar el gate de External Product
+  Validation.

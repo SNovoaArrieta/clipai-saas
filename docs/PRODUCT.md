@@ -5,15 +5,34 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | 01 — Product Charter |
-| Versión | 0.3 |
+| Versión | 0.4 |
 | Estado | Aprobado como hipótesis inicial |
-| Fase | Fase 0 — Foundation |
+| Fase | Fase 1 — Internal Alpha autorizada |
 | Product Owner | Sofía |
 | Última actualización | 2026-07-13 |
 
 Este documento propone la dirección inicial del producto y los límites de su
 MVP. No autoriza el desarrollo del SaaS completo ni afirma que las capacidades
-descritas estén implementadas. El nombre `ClipAI` es provisional.
+descritas estén implementadas. `ClipAI` es únicamente el nombre provisional
+interno, nombre del repositorio y codename de desarrollo; no es un nombre
+comercial definitivo, una marca registrada ni una identidad pública aprobada.
+La empresa tampoco tiene todavía un nombre definitivo.
+
+### Estrategia product-first aprobada
+
+La Product Owner autorizó construir incrementalmente una **Internal Alpha**
+funcional antes de iniciar investigación externa, prospección comercial o
+presentaciones públicas. La secuencia aprobada es construir, probar con
+contenido propio, sintético o expresamente autorizado, medir funcionamiento,
+errores, calidad, tiempo, coste, utilidad práctica y seguridad básica, y
+preparar una versión demostrable estable.
+
+Las entrevistas externas, el contacto con posibles usuarios, aliados o
+clientes, la comparación externa de segmentos y la selección definitiva del
+ICP quedan aplazados hasta contar con una **Demonstrable Alpha**. La Internal
+Alpha permite aprendizaje técnico interno, pero no equivale a un producto
+validado: crear software no demuestra por sí solo demanda, intención de pago ni
+product-market fit.
 
 ## 2. Visión del producto
 
@@ -199,8 +218,8 @@ definitivos requerirán revisión separada antes de operar el servicio.
 ## 10. Alcance del MVP
 
 Las siguientes capacidades definen el **alcance autorizado del primer MVP**.
-No están implementadas y su construcción solo podrá comenzar cuando se supere
-el gate de salida de Fase 0 y exista autorización explícita de la Product Owner:
+No están implementadas. Su construcción incremental dentro de la Internal Alpha
+está autorizada por la Product Owner, sujeta a tareas pequeñas y revisables:
 
 1. **Cuenta y workspace personal:** registro, acceso y un espacio privado por
    usuario.
@@ -342,9 +361,11 @@ rendimiento.
 Las métricas deberán segmentarse por tipo de fuente, duración, tipo de cliente y
 resultado del procesamiento para evitar conclusiones engañosas.
 
-## 16. Criterios de salida de producto para la Fase 0
+## 16. Criterios de producto pendientes para validación externa
 
-La dimensión de producto de la Fase 0 podrá considerarse completada cuando:
+Estos criterios siguen siendo obligatorios para evaluar validación comercial,
+pero la Product Owner ya no los utiliza como bloqueo para construir y probar la
+Internal Alpha de forma interna:
 
 - Sofía haya revisado y aprobado este charter o una versión posterior.
 - La investigación comparativa con los segmentos candidatos permita escoger un
@@ -363,8 +384,9 @@ La dimensión de producto de la Fase 0 podrá considerarse completada cuando:
 - Las decisiones de arquitectura y estándares técnicos se hayan aprobado en sus
   documentos correspondientes.
 
-Cumplir estos criterios permite decidir si se inicia la planificación del MVP;
-no autoriza por sí mismo su implementación ni su lanzamiento.
+Cumplir estos criterios permitirá decidir con evidencia sobre validación y
+continuidad comercial. Ni la construcción interna ni el cierre documental de
+Fase 0 los convierte en cumplidos o autoriza por sí mismo un lanzamiento.
 
 ## 17. Decisiones de producto abiertas
 
@@ -421,10 +443,10 @@ se duplican en `Project`.
   criterio pendiente.
 
 Estos documentos son instrumentos vacíos de resultados. Su creación no
-constituye evidencia, no cambia el estado de ningún criterio y no autoriza
-cerrar Fase 0.
+constituye evidencia ni cambia el estado de ningún criterio comercial. Su
+ejecución externa queda aplazada hasta contar con una Demonstrable Alpha.
 
-| Criterio aprobado en la sección 16 | Evidencia al 2026-07-13 | Estado |
+| Criterio de producto de la sección 16 | Evidencia al 2026-07-13 | Estado |
 | --- | --- | --- |
 | Charter revisado por Sofía | Decisiones de alcance entregadas por la Product Owner y registradas en esta versión | `Met` |
 | Función estratégica para la empresa | Posicionamiento de producto fundador, demostración y aprendizaje documentado en este charter, Founder Book y roadmap | `Met` |
@@ -440,8 +462,14 @@ cerrar Fase 0.
 
 ## 20. Conclusión del gate
 
-La Fase 0 **no puede cerrarse todavía**. Cuatro criterios están cumplidos, uno
-está parcialmente cumplido y seis requieren evidencia adicional. En
-consecuencia, la Fase 1 **no está autorizada para construcción**. Completar esta
-documentación no permite crear aplicaciones hasta que los puntos pendientes
-sean aportados, revisados y aprobados explícitamente por Sofía.
+La Product Owner cierra documentalmente la Fase 0 para permitir construcción
+técnica limitada y autoriza la Fase 1 — Internal Alpha. La checklist conserva
+cuatro criterios `Met`, uno `Partially met` y seis `Pending`; estos pendientes
+se trasladan al gate de validación externa y no se consideran satisfechos por
+la autorización de construcción.
+
+La autorización permite entregas incrementales del flujo aprobado, comenzando
+por la fundación técnica del backend. No autoriza lanzamiento público,
+prospección, ampliación del MVP ni afirma validación comercial. La Internal
+Alpha deberá convertirse primero en una Demonstrable Alpha estable antes de
+iniciar la investigación externa aplazada.

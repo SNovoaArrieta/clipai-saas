@@ -4,7 +4,7 @@
 
 | Campo         | Valor                                                            |
 | ------------- | ---------------------------------------------------------------- |
-| Versión       | 0.2                                                              |
+| Versión       | 0.3                                                              |
 | Estado        | Aprobado como secuencia inicial; sujeto a los gates de cada fase |
 | Fecha         | 2026-07-13                                                       |
 | Product Owner | Sofía                                                            |
@@ -29,44 +29,44 @@ registro de cambios.
 cómo ClipAI, como primer software y producto insignia, demostrará capacidades
 reales de software, automatización e IA sin sustituir la validación del problema.
 
-**Exclusiones.** Código productivo, integraciones, base de datos, despliegue,
-datos reales, billing y cualquier afirmación de controles implementados.
+**Exclusiones.** Integraciones, base de datos, despliegue, datos reales, billing
+y cualquier afirmación de controles implementados.
 
 **Criterios de entrada.** Visión inicial del producto y repositorio de trabajo
 disponibles.
 
-**Gate de salida.** Deben cumplirse todos los criterios verificables de la
-sección 19 de `PRODUCT.md`, registrarse las decisiones necesarias para el primer
-flujo y aprobarse los criterios de seguridad previos a su implementación.
+**Gate de salida.** Documentación fundacional, alcance, arquitectura, estándares
+técnicos y decisiones iniciales revisados, con autorización explícita de la
+Product Owner para iniciar construcción interna limitada.
 
 El trabajo de evidencia utilizará [el plan de validación](VALIDATION_PLAN.md),
 [la línea base manual](MANUAL_BASELINE.md),
 [la rúbrica de calidad](QUALITY_RUBRIC.md),
 [el registro de ejemplos](REPRESENTATIVE_EXAMPLES.md) y
-[el índice de evidencias](VALIDATION_EVIDENCE.md). La existencia de estas
-plantillas no satisface el gate: deben contener evidencia real, revisada y
-aceptada.
+[el índice de evidencias](VALIDATION_EVIDENCE.md). Estos instrumentos se
+conservan para la validación externa posterior y no se consideran ejecutados ni
+aceptados por cerrar documentalmente esta fase.
 
-**Dependencias.** Evidencia comparativa de los segmentos candidatos, selección
-de un segmento prioritario, línea base manual, rúbrica de calidad, pruebas
-representativas autorizadas y evaluación preliminar de coste, latencia,
-privacidad y lifecycle de datos.
+**Dependencias.** Aprobación documental del alcance, decisiones técnicas
+iniciales, estándares de seguridad y autorización expresa de la Product Owner.
 
-**Riesgos.** Cerrar la fase solo por completar documentos; confundir decisiones
-con controles implementados; diseñar antes de validar valor y coste.
+**Riesgos.** Confundir el cierre documental con validación comercial; presentar
+decisiones como controles implementados; ampliar el alcance durante la alpha.
 
-**Estado actual.** `Exit gate not passed`. La fundadora aprobó el alcance y las
-decisiones técnicas iniciales el 2026-07-13, pero faltan evidencias de producto
-enumeradas en `PRODUCT.md`. La Fase 0 está preparada para completar su gate,
-pero no está cerrada.
+**Estado actual.** `Closed for Internal Alpha`. La Product Owner cerró
+documentalmente la Fase 0 el 2026-07-13 para permitir construcción técnica
+limitada. Las evidencias comerciales pendientes conservan su estado y pasan al
+gate de External Product Validation.
 
-## Fase 1 — MVP Vertical Slice
+## Fase 1 — Internal Alpha
 
 **Objetivo.** Construir y verificar un flujo vertical mínimo:
 `User → Workspace → Project → File Upload → ProcessingJob → Transcript →
 Analysis → Generated Outputs`.
 
-**Alcance y entregables.** Cuenta con Supabase Auth; workspace personal;
+**Alcance y entregables.** Construcción incremental del flujo. La primera
+entrega autorizada es la fundación técnica del backend; las entregas posteriores
+podrán incorporar cuenta con Supabase Auth, workspace personal;
 proyectos; upload privado MP4, MOV, MP3 y WAV; object storage compatible con S3;
 jobs asíncronos; transcripción mediante OpenAI detrás de un adapter; análisis
 mediante OpenAI detrás de un adapter; resultados estructurados validados;
@@ -81,8 +81,8 @@ comercial sin consentimiento.
 publicación; calendario; billing; planes; equipos avanzados; integraciones de
 drive; grabación desde browser.
 
-**Criterios de entrada.** Gate completo de Fase 0, autorización explícita de la
-Product Owner, criterios de aceptación técnicos por entrega y decisiones
+**Criterios de entrada.** Cierre documental de Fase 0, autorización explícita de
+la Product Owner, criterios de aceptación técnicos por entrega y decisiones
 operativas mínimas para desarrollar sin defaults inseguros.
 
 **Criterios de salida.** Flujo desplegable con datos de prueba seguros; tests de
@@ -98,41 +98,76 @@ eliminación; rate limits; gestión de secretos.
 aislamiento de tenant; fallos parciales; outputs inválidos; tratamiento de
 contenido sensible.
 
-**Estado actual.** `Not authorized`. El alcance está aprobado, pero el gate de
-Fase 0 todavía no se ha superado.
+**Estado actual.** `Authorized`. La construcción incremental de la Internal
+Alpha está autorizada; esto no autoriza lanzamiento ni afirma validación.
 
-## Fase 2 — Product Validation
+## Fase 2 — Internal Testing and Demonstration
 
-**Objetivo.** Determinar con personas del segmento priorizado si el flujo reduce
-trabajo real y produce resultados accionables y confiables.
+**Objetivo.** Probar internamente la aplicación y preparar una Demonstrable
+Alpha estable, segura y repetible.
 
-**Alcance y entregables.** Piloto controlado; instrumentación de métricas;
-comparación contra línea base; revisión humana de timestamps y outputs;
-feedback; coste por análisis; decisiones de continuar, ajustar o detener.
+**Alcance y entregables.** Pruebas con contenido propio, sintético o
+expresamente autorizado; medición de funcionamiento, errores, calidad, tiempo
+de procesamiento, coste, utilidad práctica y seguridad básica; corrección de
+fallos; preparación de una demo sin datos privados ni operaciones manuales
+ocultas.
 
-**Resultado estratégico para la empresa.** Evidencia de uso real, aprendizajes
-comerciales, material autorizado para un posible caso de éxito, una demostración
-repetible, evidencia sobre el segmento que obtiene más valor y señales sobre la
-capacidad de ClipAI para atraer clientes o alianzas para la empresa.
+**Resultado estratégico para la empresa.** Una versión interna demostrable y
+mediciones técnicas que permitan decidir si está lista para exposición externa.
+Este resultado no constituye evidencia de demanda o intención de pago.
 
-**Exclusiones.** Escala pública, automatización de publicación, fuentes
-externas amplias y monetización completa.
+**Exclusiones.** Usuarios externos, entrevistas, prospección, presentación
+pública, escala pública, fuentes externas amplias y monetización.
 
-**Criterios de entrada.** Fase 1 verificada, política de datos para el piloto,
-participantes autorizados, rúbrica y plan de medición aprobados.
+**Criterios de entrada.** Flujo interno suficiente para pruebas, material seguro
+y autorizado, rúbrica y protocolo de medición revisados.
 
-**Criterios de salida.** Evidencia suficiente frente a los umbrales de
-`PRODUCT.md`, aprendizaje documentado y decisión explícita sobre el producto.
+**Criterios de salida.** Demonstrable Alpha estable, repetible, sin exposición
+de datos privados ni dependencias manuales ocultas, con mediciones internas
+documentadas y revisión explícita de la Product Owner.
 
-**Dependencias.** Selección y reclutamiento del segmento prioritario, soporte,
-analytics respetuoso de la privacidad y presupuesto de providers.
+**Dependencias.** Internal Alpha funcional, entorno controlado, ejemplos
+seguros, observabilidad y presupuesto de providers.
 
-**Riesgos.** Muestra sesgada, métricas ambiguas, uso de datos sin autorización,
-confundir novedad con retención.
+**Riesgos.** Confundir resultados internos con validación de mercado, usar datos
+sin autorización, ocultar operaciones manuales o exponer información privada.
 
 **Estado actual.** `Planned / Not authorized`.
 
-## Fase 3 — External Sources
+## Fase 3 — External Product Validation
+
+**Objetivo.** Determinar con usuarios externos si el producto reduce trabajo
+real, produce resultados accionables y ofrece valor suficiente para repetición
+e intención de pago.
+
+**Alcance y entregables.** Ejecución del plan de validación; comparación externa
+de segmentos; pruebas con usuarios; entrevistas; contacto con lugares, aliados
+y posibles clientes; prospección controlada; selección definitiva del ICP;
+comparación contra línea base y decisión de continuar, ajustar o detener.
+
+**Resultado estratégico para la empresa.** Evidencia comercial trazable sobre
+problema, segmento, uso, utilidad e intención de pago, sin confundir una demo
+técnica con product-market fit.
+
+**Exclusiones.** Presentación pública masiva, escala abierta, automatización de
+publicación y monetización completa.
+
+**Criterios de entrada.** Demonstrable Alpha aprobada, política de datos para el
+piloto, participantes autorizados y plan de medición listo para ejecución.
+
+**Criterios de salida.** Evidencia revisada frente a los criterios de
+`PRODUCT.md`, segmento inicial seleccionado y decisión explícita sobre el
+producto.
+
+**Dependencias.** Reclutamiento, soporte, analytics respetuoso de la privacidad
+y presupuesto de providers.
+
+**Riesgos.** Muestra sesgada, métricas ambiguas, uso de datos sin autorización y
+confundir interés inicial con retención o disposición de pago.
+
+**Estado actual.** `Deferred until Demonstrable Alpha`.
+
+## Fase 4 — External Sources
 
 **Objetivo.** Evaluar y añadir fuentes externas autorizadas solo cuando exista
 evidencia de necesidad y un mecanismo legal y técnicamente seguro.
@@ -158,7 +193,7 @@ verificada y operable sin degradar el flujo de upload.
 
 **Estado actual.** `Deferred`.
 
-## Fase 4 — Content Automation
+## Fase 5 — Content Automation
 
 **Objetivo.** Evaluar automatizaciones posteriores a la recomendación editorial.
 
@@ -178,14 +213,14 @@ riesgos y costes evaluados.
 **Criterios de salida.** Automatización limitada con calidad, permisos,
 reversibilidad y métricas verificadas.
 
-**Dependencias.** Resultados de Fases 2 y 3, UX, storage y providers.
+**Dependencias.** Resultados de Fases 3 y 4, UX, storage y providers.
 
 **Riesgos.** Diluir la propuesta de valor, costes multimedia, pérdida de control
 editorial y errores publicados.
 
 **Estado actual.** `Future / Not authorized`.
 
-## Fase 5 — Monetization
+## Fase 6 — Monetization
 
 **Objetivo.** Introducir un modelo comercial respaldado por valor y economía
 unitaria medidos.
@@ -206,7 +241,7 @@ privacidad y operación listas, ADRs comerciales y técnicos aprobados.
 **Criterios de salida.** Cobro verificable, idempotente, auditable y soportable,
 con métricas de conversión y margen.
 
-**Dependencias.** Evidencia de Fase 2, modelo comercial, legal, contabilidad y
+**Dependencias.** Evidencia de Fase 3, modelo comercial, legal, contabilidad y
 provider de billing.
 
 **Riesgos.** Cobros duplicados, márgenes negativos, impuestos, refunds y fraude.
@@ -215,6 +250,8 @@ provider de billing.
 
 ## Conclusión de autorización
 
-La documentación define el primer MVP, pero **no cierra todavía la Fase 0 ni
-autoriza iniciar la Fase 1**. La autorización se reconsiderará cuando todas las
-evidencias pendientes de la checklist de salida estén registradas y aprobadas.
+La Fase 0 queda cerrada documentalmente y la Fase 1 — Internal Alpha queda
+autorizada para construcción incremental. La investigación externa permanece
+aplazada hasta una Demonstrable Alpha aprobada. Esta autorización no cambia los
+estados de evidencia comercial ni autoriza lanzamiento, ampliación del MVP o
+inicio de fases posteriores.

@@ -1,5 +1,10 @@
 # ClipAI — Product Validation Plan
 
+> **Secuencia de ejecución aprobada:** este documento se conserva como el plan
+> para la validación externa, pero todavía no se ejecutará. Las entrevistas y la
+> comparación externa de segmentos comenzarán únicamente después de contar con
+> una Demonstrable Alpha. Su existencia no constituye evidencia comercial.
+
 ## Estado y propósito
 
 | Campo   | Valor                                                  |

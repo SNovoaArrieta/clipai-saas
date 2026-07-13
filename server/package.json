@@ -2,10 +2,25 @@
   "name": "@clipai/server",
   "version": "0.0.0",
   "private": true,
-  "description": "Reserved workspace for the future ClipAI backend.",
+  "description": "Internal Alpha backend foundation.",
+  "type": "module",
   "scripts": {
-    "typecheck": "tsc --version && node -e \"console.log('[SKIPPED] Server typecheck is not configured: the Express application has not been created yet.')\"",
-    "test": "node -e \"console.log('[SKIPPED] Server tests are not configured: no application tests were run.')\"",
-    "build": "node -e \"console.log('[SKIPPED] Server build is not configured: the application has not been created yet.')\""
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests vitest.config.ts --max-warnings=0",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "22.15.3",
+    "@types/supertest": "7.2.0",
+    "supertest": "7.2.2",
+    "tsx": "4.23.1",
+    "vitest": "4.1.10"
   }
 }
