@@ -154,6 +154,10 @@ longitudes, defaults ni nombres definitivos de índices.
   `20260713180000_identity_foundation` y las nueve pruebas de integración
   verificaron localmente contra PostgreSQL real que se conserva exactamente un
   workspace personal por usuario, incluso con ocho solicitudes concurrentes.
+  El workflow de CI incluye un job separado con PostgreSQL 18 efímero que aplica
+  la migración mediante `migrate deploy`, comprueba su estado y ejecuta las
+  nueve pruebas contra `clipai_test`. La ejecución real en GitHub continúa
+  pendiente hasta publicar el commit.
 
 ### `Project`
 

@@ -20,6 +20,9 @@ implementada.
   `DATABASE_URL`, scripts explícitos de Prisma y shutdown de HTTP y PostgreSQL.
 - Nueve pruebas de integración PostgreSQL protegidas por `NODE_ENV=test`,
   `TEST_DATABASE_URL` y nombre de base que contenga `test`.
+- Job separado de GitHub Actions con PostgreSQL 18 efímero, health check,
+  migración mediante `migrate deploy` y ejecución de las nueve pruebas de
+  integración sin credenciales externas.
 
 ### Validation status
 
@@ -37,6 +40,8 @@ implementada.
   solo los datos sintéticos y conservó el schema y `_prisma_migrations`.
 - Esta validación es exclusivamente local; no valida producción ni servicios
   cloud.
+- La configuración del job fue revisada localmente; su ejecución real en GitHub
+  continúa pendiente hasta publicar el commit.
 - `npm audit` reporta tres hallazgos moderados en tooling de desarrollo, desde
   `@hono/node-server` transitivo de `@prisma/dev`; la única corrección propuesta
   por npm baja a Prisma 6 y no se aplicó porque esta tarea requiere Prisma 7.

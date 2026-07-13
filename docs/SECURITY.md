@@ -604,6 +604,8 @@ La implementación futura deberá aplicar estas prácticas:
   triage y excepciones documentadas;
 - workflows de CI con permisos mínimos, secrets por entorno y acciones o tools
   fijadas a versiones revisables;
+- validación PostgreSQL en un job aislado con permisos `contents: read`, base y
+  credenciales sintéticas efímeras, sin conexiones cloud o de producción;
 - builds desde source control revisado, sin cambios manuales en producción;
 - separación de entornos, cuentas, credenciales y datos; y
 - parches de seguridad priorizados por explotabilidad, exposición e impacto.
@@ -713,7 +715,7 @@ Estado real del repositorio al publicar esta versión:
 `client/` continúa sin aplicación productiva y `server/` solo implementa la
 fundación de Internal Alpha y el límite de identidad descrito. La verificación
 local no certifica la seguridad del producto ni cubre lifecycle de sesión,
-revocación, persistencia, tenancy o autorización.
+revocación, tenancy o autorización.
 
 ## 22. Security gates
 
@@ -815,7 +817,9 @@ ocho solicitudes concurrentes y terminó sin datos sintéticos residuales. La
 migración, sus tablas, índices, restricciones y foreign key también se
 verificaron directamente en PostgreSQL. Esta evidencia es local y no valida
 ningún entorno productivo o cloud. Los demás elementos del flujo conservan sus
-estados anteriores.
+estados anteriores. El job PostgreSQL de CI está configurado para repetir esta
+validación sobre una base efímera, pero permanece pendiente de evidencia remota
+hasta que el workflow se ejecute en GitHub.
 
 ### Criterios previos a completar el vertical slice
 

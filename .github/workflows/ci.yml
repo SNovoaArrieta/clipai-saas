@@ -44,3 +44,69 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  server-postgres-integration:
+    name: Server PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_ENV: test
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: clipai_app
+          POSTGRES_PASSWORD: clipai_ci_ephemeral_only_do_not_reuse
+          POSTGRES_DB: clipai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clipai_app -d clipai_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Set up npm
+        run: npm install --global npm@10.9.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure ephemeral database
+        shell: bash
+        run: |
+          database_user='clipai_app'
+          database_password='clipai_ci_ephemeral_only_do_not_reuse'
+          database_name='clipai_test'
+          database_url="postgresql://${database_user}:${database_password}@127.0.0.1:5432/${database_name}"
+          echo "::add-mask::$database_url"
+          echo "DATABASE_URL=$database_url" >> "$GITHUB_ENV"
+          echo "TEST_DATABASE_URL=$database_url" >> "$GITHUB_ENV"
+
+      - name: Generate Prisma Client
+        run: npm run prisma:generate --workspace=@clipai/server
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate --workspace=@clipai/server
+
+      - name: Apply PostgreSQL migrations
+        run: npm run db:migrate:deploy --workspace=@clipai/server
+
+      - name: Check PostgreSQL migration status
+        run: npm run db:migrate:status --workspace=@clipai/server
+
+      - name: Run PostgreSQL integration tests
+        run: npm run test:integration --workspace=@clipai/server
