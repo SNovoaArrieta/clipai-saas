@@ -274,12 +274,22 @@ Este límite fue verificado localmente con dos workspaces y mediante HTTP real;
 el Project de un workspace no apareció en el listado del otro.
 
 La fundación de upload añade un contrato estrecho `ObjectStorage` y un adapter
-`S3ObjectStorage` que solo firma targets `PUT`; el dominio no importa el SDK.
+`S3ObjectStorage` que firma targets `PUT` e inspecciona metadata mediante
+`HeadObjectCommand`; el dominio no importa el SDK.
 La ruta valida primero identidad, scope y declaraciones, firma fuera de la
 transacción y crea `Source` + `UploadIntent` atómicamente. Las relaciones
 compuestas en PostgreSQL hacen tenant-safe la asociación aunque una escritura
 eluda la aplicación. Firmar no lee ni escribe el bucket, y ninguna URL firmada
 se guarda en PostgreSQL.
+
+La confirmación resuelve Project e intención con `workspaceId`, devuelve replays
+completados sin contactar storage y ejecuta `HeadObject` solo sobre la object key
+persistida. El target exige `x-amz-meta-upload-intent-id` ligado a la firma. Tras
+validar tamaño, `Content-Type` y ese vínculo fuera de PostgreSQL, una transacción
+corta reclama condicionalmente `completedAt`, persiste la observación coherente y
+avanza `Source.submitted → validating`. Confirmaciones concurrentes que pierden
+la actualización releen el resultado autoritativo; ninguna transacción permanece
+abierta durante la llamada de red.
 
 El modelo conceptual incluye:
 
@@ -387,8 +397,10 @@ permanecen configurables y pendientes de decisión operativa.
 ## 12. Flujo inicial de una solicitud de análisis
 
 1. **Upload autorizado.** El usuario autenticado crea una intención server-side,
-   sube un MP4, MOV, MP3 o WAV a object storage privado compatible con S3 y
-   confirma que posee el contenido o tiene autorización suficiente.
+   sube un MP4, MOV, MP3 o WAV a object storage privado compatible con S3 y el
+   backend confirma su metadata mediante `HEAD`. Esta confirmación solo deja el
+   Source en `validating`; la autorización del contenido continúa pendiente de
+   `OwnershipAttestation`.
 2. **Validación.** El backend valida token de Supabase, usuario, pertenencia al
    workspace personal, referencia opaca, MIME real, formato, límites y
    `OwnershipAttestation`. La attestation no se interpreta como garantía legal.

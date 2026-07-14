@@ -218,8 +218,8 @@ longitudes, defaults ni nombres definitivos de índices.
   externo. Se restringe el hard-delete mientras existan transcripts, análisis,
   attestations o jobs que deban conservarse.
 - **Estado implementado:** `Source` conserva `workspaceId`, `projectId`, tipo
-  `upload`, estado inicial `submitted`, `safeReference`, `durationMs` nullable,
-  `isActive = false` y timestamps. La foreign key compuesta
+  `upload`, estado inicial `submitted`, transición confirmada a `validating`,
+  `safeReference`, `durationMs` nullable, `isActive = false` y timestamps. La foreign key compuesta
   `(projectId, workspaceId) → Project(id, workspaceId)` impide asociaciones
   cross-tenant incluso ante escrituras directas.
 
@@ -229,12 +229,15 @@ longitudes, defaults ni nombres definitivos de índices.
   el objeto privado de un único `Source`.
 - **Campos implementados:** UUID, scope de workspace y Project, `sourceId`,
   object key opaca, filename y declaraciones de tipo/tamaño, expiración,
-  `completedAt` nullable, timestamps y clave idempotente tenant-safe.
+  `observedSizeBytes`, `observedContentType`, `storageEtag` y `completedAt`
+  nullables antes de confirmar, timestamps y clave idempotente tenant-safe.
 - **Restricciones:** `sourceId` y object key son únicos; la relación compuesta
   con Source mantiene los tres IDs coherentes. La URL firmada, credenciales y
-  payloads del SDK nunca se persisten. `completedAt` permanece `null` hasta una
-  tarea posterior. La limpieza automática de intenciones expiradas también
-  permanece pendiente.
+  payloads del SDK nunca se persisten. Al confirmar, tamaño y tipo deben
+  coincidir exactamente con la declaración y la metadata interna debe ligar el
+  objeto con la intención. `storageEtag` es opcional y opaco, no un checksum.
+  `expiresAt` limita el target firmado, no impide confirmar un objeto existente.
+  La limpieza automática de intenciones expiradas permanece pendiente.
 
 ### `OwnershipAttestation`
 
@@ -460,6 +463,12 @@ terminales para ese registro. `awaiting_input` pertenece exclusivamente a
 `ProcessingJob`. Reemplazar una fuente crea otro `Source`; que una fuente deje
 de ser activa no altera su estado. Otro archivo soportado se registra como una
 fuente nueva, no como una mutación de la original.
+
+La confirmación de metadata implementa únicamente `submitted → validating`.
+Una actualización condicional de `UploadIntent.completedAt` elige una sola
+observación concurrente y la misma transacción corta avanza el Source; `HEAD`
+ocurre antes de abrirla. Confirmar no demuestra MIME real, no crea una
+`OwnershipAttestation`, no acepta y no activa la fuente.
 
 ### `ProcessingJob`
 
@@ -775,7 +784,7 @@ funcionalidad sea autorizada y se definan sus invariantes.
 | Tema | Riesgo o decisión pendiente | Tratamiento provisional |
 | --- | --- | --- |
 | Authentication | Supabase Auth está aprobado; session lifecycle, cambio de email y recuperación detallada siguen pendientes. | Mantener `User.id` interno y referencias externas secundarias; no guardar passwords ni tokens. |
-| Source inputs | Upload MP4, MOV, MP3 y WAV está aprobado; idiomas y duración máxima siguen pendientes. | Usar `sourceType = upload`, referencia opaca y límite provisional de 250 MiB; verificar bytes y MIME reales al confirmar. |
+| Source inputs | Upload MP4, MOV, MP3 y WAV está aprobado; idiomas y duración máxima siguen pendientes. | Usar `sourceType = upload`, referencia opaca y límite provisional de 250 MiB; la confirmación verifica metadata de storage, pero bytes y MIME real siguen pendientes. |
 | Object storage | Interfaz privada S3-compatible aprobada; provider, región y lifecycle siguen pendientes. | No guardar binarios grandes en PostgreSQL ni signed URLs duraderas. |
 | Transcript storage | Falta decidir si texto completo y segmentos vivirán íntegramente en PostgreSQL o usarán storage externo. | PostgreSQL conserva metadata, relaciones, estado y referencias autoritativas. |
 | Calidad temporal | Overlaps, gaps, precisión y tolerancias dependen del mecanismo real de transcripción. | Exigir milisegundos válidos, orden y respaldo verificable; no inventar tiempos. |

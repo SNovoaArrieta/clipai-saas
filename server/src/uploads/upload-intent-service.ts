@@ -39,11 +39,46 @@ export interface CreateUploadIntentResult {
   readonly replayed: boolean;
 }
 
+export interface ConfirmedUploadSourceView {
+  readonly id: string;
+  readonly sourceType: 'upload';
+  readonly state: 'validating';
+  readonly safeReference: string;
+  readonly durationMs: null;
+  readonly isActive: false;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface ConfirmedUploadView {
+  readonly handle: string;
+  readonly status: 'completed';
+  readonly sizeBytes: number;
+  readonly contentType: string;
+  readonly completedAt: string;
+}
+
+export interface ConfirmUploadIntentInput {
+  readonly workspaceId: string;
+  readonly projectId: string;
+  readonly uploadHandle: string;
+}
+
+export interface ConfirmUploadIntentResult {
+  readonly source: ConfirmedUploadSourceView;
+  readonly upload: ConfirmedUploadView;
+  readonly replayed: boolean;
+}
+
 export interface UploadIntentService {
   createUploadIntent(
     input: CreateUploadIntentInput,
     objectStorage: ObjectStorage,
   ): Promise<CreateUploadIntentResult>;
+  confirmUploadIntent(
+    input: ConfirmUploadIntentInput,
+    objectStorage: ObjectStorage,
+  ): Promise<ConfirmUploadIntentResult>;
 }
 
 export class UploadProjectNotFoundError extends Error {
@@ -64,6 +99,27 @@ export class UploadIdempotencyConflictError extends Error {
   public constructor() {
     super('Upload idempotency conflict.');
     this.name = 'UploadIdempotencyConflictError';
+  }
+}
+
+export class UploadIntentNotFoundError extends Error {
+  public constructor() {
+    super('Upload intent was not found.');
+    this.name = 'UploadIntentNotFoundError';
+  }
+}
+
+export class UploadNotCompletedError extends Error {
+  public constructor() {
+    super('Upload has not been completed.');
+    this.name = 'UploadNotCompletedError';
+  }
+}
+
+export class UploadMetadataMismatchError extends Error {
+  public constructor() {
+    super('Uploaded object metadata does not match.');
+    this.name = 'UploadMetadataMismatchError';
   }
 }
 

@@ -7,7 +7,7 @@
 | Documento | `05 — API Foundation` |
 | Versión | `0.3` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — Project create/list and private upload intent implemented` |
+| Estado de implementación | `Partial — Project create/list and private upload confirmation implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
@@ -450,6 +450,7 @@ archive.
 | Estado | Método y ruta | Auth | Request | Response | Success |
 | --- | --- | --- | --- | --- | --- |
 | `Implemented — private upload foundation` | `POST /api/v1/projects/:projectId/upload-intents` | Required | `{ filename, contentType, sizeBytes }` + `Idempotency-Key` | Source `submitted` + target PUT temporal | `201` |
+| `Implemented — private upload confirmation` | `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` | Required | Body ausente o `{}` | Source `validating` + upload completado | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType: "upload", uploadHandle }` + `Idempotency-Key` | Source | `201` |
 | `Draft / Not implemented` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
@@ -471,11 +472,22 @@ La ruta de upload intent crea atómicamente el `Source` en `submitted` y su
 intención durable, pero no confirma que el objeto exista. Acepta declaraciones
 MP4, MOV, MP3 y WAV de 1 a 262144000 bytes; filename, tipo y tamaño siguen siendo
 datos no confiables hasta una confirmación posterior. Devuelve un handle opaco,
-una URL `PUT` firmada por diez minutos y el header `Content-Type` requerido. No
+una URL `PUT` firmada por diez minutos y los headers requeridos `Content-Type` y
+`x-amz-meta-upload-intent-id`, ambos ligados a la firma. No
 persiste la URL ni expone object key, bucket o ownership interno. El endpoint
 genérico `POST /sources` permanece en draft y no debe duplicar este Source.
 La limpieza automática de intenciones expiradas permanece pendiente; una
 intención vigente o regenerada no afirma que el objeto exista.
+
+La confirmación busca la intención solo dentro del Project y Workspace
+autenticados, ejecuta `HeadObject` sobre la object key persistida y exige tamaño,
+`Content-Type` normalizado y metadata `upload-intent-id` coincidentes. Persiste
+solo tamaño y tipo observados, `completedAt` y un ETag opaco opcional; el ETag no
+es un checksum y nunca se devuelve. La operación permite confirmar después de
+`expiresAt`, porque ese campo solo expira el target firmado. La primera
+confirmación cambia `submitted → validating`; no verifica MIME real, no acepta,
+no attesta y no activa el Source. Un replay completado no repite `HEAD` y puede
+incluir `Upload-Confirmation-Replayed: true`.
 
 Crear una fuente no inicia análisis ni consume uso. La attestation requiere:
 
@@ -685,7 +697,10 @@ Content-Type: application/json; charset=utf-8
       "handle": "0144e07d-7f4b-4c3d-82df-6ad1d9fd3188",
       "method": "PUT",
       "url": "https://temporary-signed-target.example.invalid/opaque",
-      "headers": { "Content-Type": "video/mp4" },
+      "headers": {
+        "Content-Type": "video/mp4",
+        "x-amz-meta-upload-intent-id": "0144e07d-7f4b-4c3d-82df-6ad1d9fd3188"
+      },
       "expiresAt": "2026-07-13T18:10:00.000Z",
       "maxSizeBytes": 262144000
     }
@@ -697,7 +712,41 @@ Un replay equivalente conserva Source y handle, genera otro target temporal y
 devuelve `201` con `Idempotency-Replayed: true`. No se ejecuta el `PUT`; MIME,
 tamaño, existencia y estructura reales continúan sin verificar.
 
-### 14.3 Añadir, attestar y activar una source
+### 14.3 Confirmar metadata del objeto cargado
+
+```http
+POST /api/v1/projects/9dbe3a14-ded1-4f9f-9ca7-e091a7a2f482/upload-intents/0144e07d-7f4b-4c3d-82df-6ad1d9fd3188/confirm HTTP/1.1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{}
+```
+
+```json
+{
+  "data": {
+    "source": {
+      "id": "87c00c7d-d959-46f1-a760-e067a42ae525",
+      "sourceType": "upload",
+      "state": "validating",
+      "safeReference": "Episodio 01.mp4",
+      "durationMs": null,
+      "isActive": false,
+      "createdAt": "2026-07-13T18:00:00.000Z",
+      "updatedAt": "2026-07-13T18:11:00.000Z"
+    },
+    "upload": {
+      "handle": "0144e07d-7f4b-4c3d-82df-6ad1d9fd3188",
+      "status": "completed",
+      "sizeBytes": 52428800,
+      "contentType": "video/mp4",
+      "completedAt": "2026-07-13T18:11:00.000Z"
+    }
+  }
+}
+```
+
+### 14.4 Añadir, attestar y activar una source
 
 El ejemplo usa el único tipo aprobado para el primer MVP. La creación de la
 intención de upload y el transporte al storage requieren un contrato separado
@@ -1375,6 +1424,13 @@ backoff máximo y timeout de UX permanecen pendientes de medición.
 | `SERVICE_UNAVAILABLE` | `503` | Capacidad esencial temporalmente no disponible. |
 | `PERSISTENCE_NOT_CONFIGURED` | `503` | Persistencia ausente en un entorno que permite mantener health activo. |
 | `PERSISTENCE_UNAVAILABLE` | `503` | PostgreSQL no está disponible temporalmente. |
+| `UPLOAD_CONFIRMATION_INVALID` | `400` | Parámetros o body de confirmación inválidos. |
+| `UPLOAD_INTENT_NOT_FOUND` | `404` | Intent ausente o fuera del Project y Workspace visibles. |
+| `UPLOAD_NOT_COMPLETED` | `409` | El objeto privado todavía no existe. |
+| `UPLOAD_METADATA_MISMATCH` | `409` | La metadata observada no coincide con la declaración. |
+| `PROJECT_ARCHIVED` | `409` | El Project archivado no admite confirmación. |
+| `STORAGE_NOT_CONFIGURED` | `503` | Object storage no está configurado. |
+| `STORAGE_UNAVAILABLE` | `503` | Object storage no está disponible temporalmente. |
 
 ### Safe ProcessingJob codes
 
@@ -1475,6 +1531,7 @@ Estado real del repositorio al publicar esta versión:
 | `POST /api/v1/projects` | `Implemented — workspace-scoped and idempotent` |
 | `GET /api/v1/projects` | `Implemented — workspace-scoped cursor pagination` |
 | `POST /api/v1/projects/:projectId/upload-intents` | `Implemented — private temporary PUT target` |
+| `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` | `Implemented — private HEAD metadata confirmation` |
 | `GET /health/live` | `Planned Phase 0 / Not implemented` |
 | `GET /health/ready` | `Planned Phase 0 / Not implemented` |
 | JWT identity verification | `Implemented and locally verified` |
@@ -1485,9 +1542,9 @@ Estado real del repositorio al publicar esta versión:
 | Usage reservations y ledger | `Not implemented` |
 
 `client/` continúa sin aplicación. `server/` persiste `User`, `Workspace`,
-`Project`, `Source` y `UploadIntent`; crea y lista Projects y emite targets
-temporales de upload con aislamiento de workspace, pero no confirma objetos,
-procesa videos ni cobra uso. Las 108 pruebas unitarias y las 42 pruebas
+`Project`, `Source` y `UploadIntent`; crea y lista Projects, emite targets
+temporales y confirma metadata de objetos con aislamiento de workspace, pero no
+inspecciona bytes, procesa videos ni cobra uso. Las 127 pruebas unitarias y las 61 pruebas
 PostgreSQL pasan localmente. La ejecución remota del CI para esta ampliación
 permanece pendiente hasta publicar los cambios.
 

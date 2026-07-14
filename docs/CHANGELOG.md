@@ -4,6 +4,28 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Uploaded object metadata confirmation
+
+### Added
+
+- `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` con
+  scope de Workspace y Project, respuesta segura e idempotencia de replay.
+- `HeadObject` provider-neutral para verificar existencia, tamaño, `Content-Type`
+  y metadata interna `upload-intent-id` firmada con el target `PUT`.
+- Campos observados mínimos en `UploadIntent` y transición atómica
+  `Source.submitted → validating`, sin activar ni aceptar la fuente.
+
+### Scope and validation status
+
+- La cuarta migración quedó aplicada a `clipai_test`; 127 pruebas unitarias y 61
+  PostgreSQL pasan localmente, incluidas 19 nuevas y concurrencia controlada.
+- No se ejecutó una prueba con bucket real porque no existe configuración S3
+  segura completa en el entorno. Los tests del signer y `HEAD` no usan red.
+- No se verifica MIME real, magic bytes, malware ni autorización; no se crean
+  attestations, Jobs, transcripts, análisis o integraciones de IA.
+- El CI existente descubrirá la suite PostgreSQL sin añadir S3 ni credenciales;
+  la evidencia remota continúa pendiente porque esta tarea no hace push.
+
 ## 2026-07-13 — Private upload intent and Source foundation
 
 ### Added

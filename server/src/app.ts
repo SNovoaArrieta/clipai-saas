@@ -37,6 +37,22 @@ const errorHandler: ErrorRequestHandler = (
     error instanceof SyntaxError &&
     'status' in error &&
     error.status === 400 &&
+    request.path.endsWith('/confirm') &&
+    request.path.includes('/upload-intents/')
+  ) {
+    response.status(400).json({
+      error: {
+        code: 'UPLOAD_CONFIRMATION_INVALID',
+        message: 'Upload confirmation is invalid.',
+      },
+    });
+    return;
+  }
+
+  if (
+    error instanceof SyntaxError &&
+    'status' in error &&
+    error.status === 400 &&
     request.path.includes('/upload-intents')
   ) {
     response.status(400).json({

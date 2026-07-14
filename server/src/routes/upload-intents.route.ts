@@ -16,6 +16,9 @@ import {
   UPLOAD_FILENAME_MAX_LENGTH,
   UPLOAD_MAX_SIZE_BYTES,
   UploadIdempotencyConflictError,
+  UploadIntentNotFoundError,
+  UploadMetadataMismatchError,
+  UploadNotCompletedError,
   UploadPersistenceError,
   UploadProjectArchivedError,
   UploadProjectNotFoundError,
@@ -42,6 +45,29 @@ interface ParsedUploadInput {
 
 function uploadInputError(): AppError {
   return new AppError(400, 'UPLOAD_INPUT_INVALID', 'Upload input is invalid.');
+}
+
+function uploadConfirmationError(): AppError {
+  return new AppError(
+    400,
+    'UPLOAD_CONFIRMATION_INVALID',
+    'Upload confirmation is invalid.',
+  );
+}
+
+function parseConfirmationBody(body: unknown): void {
+  if (body === undefined) {
+    return;
+  }
+
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    Array.isArray(body) ||
+    Object.keys(body).length !== 0
+  ) {
+    throw uploadConfirmationError();
+  }
 }
 
 function parseUploadInput(body: unknown): ParsedUploadInput {
@@ -118,6 +144,30 @@ function mapUploadError(error: unknown): AppError {
 
   if (error instanceof UploadProjectArchivedError) {
     return new AppError(409, 'PROJECT_ARCHIVED', 'Project is archived.');
+  }
+
+  if (error instanceof UploadIntentNotFoundError) {
+    return new AppError(
+      404,
+      'UPLOAD_INTENT_NOT_FOUND',
+      'Upload intent was not found.',
+    );
+  }
+
+  if (error instanceof UploadNotCompletedError) {
+    return new AppError(
+      409,
+      'UPLOAD_NOT_COMPLETED',
+      'Upload has not been completed.',
+    );
+  }
+
+  if (error instanceof UploadMetadataMismatchError) {
+    return new AppError(
+      409,
+      'UPLOAD_METADATA_MISMATCH',
+      'Uploaded object metadata does not match.',
+    );
   }
 
   if (error instanceof UploadIdempotencyConflictError) {
@@ -211,6 +261,69 @@ export function createUploadIntentsRouter(
           response.set('Idempotency-Replayed', 'true');
         }
         response.status(201).json({
+          data: { source: result.source, upload: result.upload },
+        });
+      } catch (error: unknown) {
+        next(mapUploadError(error));
+      }
+    },
+  );
+
+  router.post(
+    '/:uploadHandle/confirm',
+    requireAuthentication(identityVerifier),
+    resolveRequestPrincipal(identityProvisioner),
+    async (request, response, next) => {
+      if (uploadIntentService === undefined) {
+        next(
+          new AppError(
+            503,
+            'PERSISTENCE_NOT_CONFIGURED',
+            'Persistence is not available.',
+          ),
+        );
+        return;
+      }
+
+      if (objectStorage === undefined) {
+        next(
+          new AppError(
+            503,
+            'STORAGE_NOT_CONFIGURED',
+            'Object storage is not available.',
+          ),
+        );
+        return;
+      }
+
+      try {
+        const projectId = request.params.projectId;
+        const uploadHandle = request.params.uploadHandle;
+        if (
+          typeof projectId !== 'string' ||
+          !uuidPattern.test(projectId) ||
+          typeof uploadHandle !== 'string' ||
+          !uuidPattern.test(uploadHandle)
+        ) {
+          throw uploadConfirmationError();
+        }
+
+        parseConfirmationBody(request.body);
+        const principal = getRequestPrincipal(request);
+        const result = await uploadIntentService.confirmUploadIntent(
+          {
+            workspaceId: principal.workspace.id,
+            projectId,
+            uploadHandle,
+          },
+          objectStorage,
+        );
+
+        response.set('Cache-Control', 'no-store');
+        if (result.replayed) {
+          response.set('Upload-Confirmation-Replayed', 'true');
+        }
+        response.status(200).json({
           data: { source: result.source, upload: result.upload },
         });
       } catch (error: unknown) {

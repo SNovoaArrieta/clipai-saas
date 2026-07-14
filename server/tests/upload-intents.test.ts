@@ -36,9 +36,15 @@ function createObjectStorage(): ObjectStorage {
     createUploadTarget: vi.fn(async (input) => ({
       method: 'PUT' as const,
       url: signedUrl,
-      headers: { 'Content-Type': input.contentType },
+      headers: {
+        'Content-Type': input.contentType,
+        'x-amz-meta-upload-intent-id': input.uploadIntentId,
+      },
       expiresAt: input.expiresAt,
     })),
+    inspectUploadedObject: vi.fn(async () => {
+      throw new Error('Unexpected object inspection.');
+    }),
   };
 }
 
@@ -48,6 +54,7 @@ function createUploadIntentService(
   return {
     createUploadIntent: vi.fn(async (input, objectStorage) => {
       const target = await objectStorage.createUploadTarget({
+        uploadIntentId,
         objectKey: `uploads/${uploadIntentId}/opaque.mp4`,
         contentType: input.contentType,
         sizeBytes: input.sizeBytes,
@@ -75,6 +82,9 @@ function createUploadIntentService(
         },
         replayed: false,
       };
+    }),
+    confirmUploadIntent: vi.fn(async () => {
+      throw new Error('Unexpected upload confirmation.');
     }),
     ...overrides,
   };
@@ -215,7 +225,10 @@ describe('private upload intent route', () => {
       handle: uploadIntentId,
       method: 'PUT',
       url: signedUrl,
-      headers: { 'Content-Type': 'video/mp4' },
+      headers: {
+        'Content-Type': 'video/mp4',
+        'x-amz-meta-upload-intent-id': uploadIntentId,
+      },
       maxSizeBytes: 262_144_000,
     });
     for (const privateField of [
@@ -249,7 +262,10 @@ describe('private upload intent route', () => {
           handle: uploadIntentId,
           method: 'PUT' as const,
           url: `${signedUrl}?renewed=true`,
-          headers: { 'Content-Type': validBody.contentType },
+          headers: {
+            'Content-Type': validBody.contentType,
+            'x-amz-meta-upload-intent-id': uploadIntentId,
+          },
           expiresAt: '2026-07-13T18:20:00.000Z',
           maxSizeBytes: 262_144_000,
         },

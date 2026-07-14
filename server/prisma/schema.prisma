@@ -98,6 +98,9 @@ model UploadIntent {
   declaredSizeBytes    BigInt
   originalFilename     String    @db.VarChar(255)
   expiresAt            DateTime  @db.Timestamptz(3)
+  observedSizeBytes    BigInt?
+  observedContentType  String?   @db.VarChar(100)
+  storageEtag          String?   @db.VarChar(255)
   completedAt          DateTime? @db.Timestamptz(3)
   createdAt            DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime  @updatedAt @db.Timestamptz(3)

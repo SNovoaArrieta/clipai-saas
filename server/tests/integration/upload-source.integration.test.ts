@@ -16,6 +16,7 @@ import { PrismaProjectService } from '../../src/projects/prisma-project-service.
 import { PrismaIdentityProvisioner } from '../../src/provisioning/prisma-identity-provisioner.js';
 import type {
   CreateUploadTargetInput,
+  InspectUploadedObjectInput,
   ObjectStorage,
 } from '../../src/storage/object-storage.js';
 import { ObjectStorageUnavailableError } from '../../src/storage/object-storage.js';
@@ -69,9 +70,19 @@ class SyntheticObjectStorage implements ObjectStorage {
     return {
       method: 'PUT' as const,
       url: `https://storage.example.invalid/synthetic-target-${this.inputs.length}`,
-      headers: { 'Content-Type': input.contentType },
+      headers: {
+        'Content-Type': input.contentType,
+        'x-amz-meta-upload-intent-id': input.uploadIntentId,
+      },
       expiresAt: input.expiresAt,
     };
+  }
+
+  public async inspectUploadedObject(
+    input: InspectUploadedObjectInput,
+  ): Promise<never> {
+    void input;
+    throw new Error('Unexpected object inspection.');
   }
 }
 
@@ -184,6 +195,9 @@ describeWithPostgres('PostgreSQL private upload Source foundation', () => {
     const { principal, project } = await createFixture();
     const unavailableStorage: ObjectStorage = {
       createUploadTarget: async () => {
+        throw new ObjectStorageUnavailableError();
+      },
+      inspectUploadedObject: async () => {
         throw new ObjectStorageUnavailableError();
       },
     };
