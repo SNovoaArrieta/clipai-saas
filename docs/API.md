@@ -7,7 +7,7 @@
 | Documento | `05 — API Foundation` |
 | Versión | `0.3` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — Project create/list implemented` |
+| Estado de implementación | `Partial — Project create/list and private upload intent implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
@@ -17,8 +17,8 @@ convenciones REST, contratos preliminares, límites de seguridad y el
 comportamiento observable del procesamiento asíncrono.
 
 La fundación del servidor, `GET /health`, la frontera protegida de identidad y
-el provisioning persistido de `User` y `Workspace` personal, y la creación y el
-listado de `Project`, están implementados. El resto de rutas de dominio continúa
+el provisioning persistido de `User` y `Workspace` personal, la creación y el
+listado de `Project`, y la intención privada inicial de upload están implementados. El resto de rutas de dominio continúa
 en estado `Draft / Not implemented`; este documento no crea una API pública para
 terceros ni presenta el SaaS completo como construido.
 
@@ -421,8 +421,8 @@ Project expone `id`, `title`, `state`, `activeSourceId`, `createdAt`,
 proyecto nunca crea Source, ProcessingJob, reserva ni queue message.
 
 La fundación implementada expone `id`, `title`, `state`, `createdAt`,
-`updatedAt` y `archivedAt`; `activeSourceId` se añadirá únicamente cuando exista
-`Source`. `title` se recorta en sus extremos, admite Unicode, exige entre 1 y
+`updatedAt` y `archivedAt`; `activeSourceId` se añadirá únicamente cuando se
+autorice la activación de Sources. `title` se recorta en sus extremos, admite Unicode, exige entre 1 y
 160 caracteres y rechaza caracteres de control. El body acepta exclusivamente
 `title`; ownership, IDs, estado y timestamps son server-controlled.
 
@@ -449,6 +449,7 @@ archive.
 
 | Estado | Método y ruta | Auth | Request | Response | Success |
 | --- | --- | --- | --- | --- | --- |
+| `Implemented — private upload foundation` | `POST /api/v1/projects/:projectId/upload-intents` | Required | `{ filename, contentType, sizeBytes }` + `Idempotency-Key` | Source `submitted` + target PUT temporal | `201` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType: "upload", uploadHandle }` + `Idempotency-Key` | Source | `201` |
 | `Draft / Not implemented` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
@@ -465,6 +466,16 @@ estados conceptuales son `submitted`, `validating`, `accepted` y `rejected`.
 Source puede permanecer `accepted` mientras su ProcessingJob cambia a
 `awaiting_input` porque se necesita un transcript temporizado u otra entrada
 alternativa.
+
+La ruta de upload intent crea atómicamente el `Source` en `submitted` y su
+intención durable, pero no confirma que el objeto exista. Acepta declaraciones
+MP4, MOV, MP3 y WAV de 1 a 262144000 bytes; filename, tipo y tamaño siguen siendo
+datos no confiables hasta una confirmación posterior. Devuelve un handle opaco,
+una URL `PUT` firmada por diez minutos y el header `Content-Type` requerido. No
+persiste la URL ni expone object key, bucket o ownership interno. El endpoint
+genérico `POST /sources` permanece en draft y no debe duplicar este Source.
+La limpieza automática de intenciones expiradas permanece pendiente; una
+intención vigente o regenerada no afirma que el objeto exista.
 
 Crear una fuente no inicia análisis ni consume uso. La attestation requiere:
 
@@ -636,7 +647,57 @@ Content-Type: application/json; charset=utf-8
 
 No se crea una fuente, job, reserva ni queue message.
 
-### 14.2 Añadir, attestar y activar una source
+### 14.2 Crear una intención privada de upload
+
+```http
+POST /api/v1/projects/9dbe3a14-ded1-4f9f-9ca7-e091a7a2f482/upload-intents HTTP/1.1
+Authorization: Bearer <token>
+Content-Type: application/json
+Idempotency-Key: create-upload:01JYV8M1D4P7Q2G5X9K3T6RNWB
+
+{
+  "filename": "Episodio 01.mp4",
+  "contentType": "video/mp4",
+  "sizeBytes": 52428800
+}
+```
+
+```http
+HTTP/1.1 201 Created
+Cache-Control: no-store
+Content-Type: application/json; charset=utf-8
+```
+
+```json
+{
+  "data": {
+    "source": {
+      "id": "87c00c7d-d959-46f1-a760-e067a42ae525",
+      "sourceType": "upload",
+      "state": "submitted",
+      "safeReference": "Episodio 01.mp4",
+      "durationMs": null,
+      "isActive": false,
+      "createdAt": "2026-07-13T18:00:00.000Z",
+      "updatedAt": "2026-07-13T18:00:00.000Z"
+    },
+    "upload": {
+      "handle": "0144e07d-7f4b-4c3d-82df-6ad1d9fd3188",
+      "method": "PUT",
+      "url": "https://temporary-signed-target.example.invalid/opaque",
+      "headers": { "Content-Type": "video/mp4" },
+      "expiresAt": "2026-07-13T18:10:00.000Z",
+      "maxSizeBytes": 262144000
+    }
+  }
+}
+```
+
+Un replay equivalente conserva Source y handle, genera otro target temporal y
+devuelve `201` con `Idempotency-Replayed: true`. No se ejecuta el `PUT`; MIME,
+tamaño, existencia y estructura reales continúan sin verificar.
+
+### 14.3 Añadir, attestar y activar una source
 
 El ejemplo usa el único tipo aprobado para el primer MVP. La creación de la
 intención de upload y el transporte al storage requieren un contrato separado
@@ -756,7 +817,7 @@ Content-Type: application/json
 
 Ninguna de estas tres operaciones inicia análisis o consume uso.
 
-### 14.3 Iniciar un análisis idempotente
+### 14.4 Iniciar un análisis idempotente
 
 ```http
 POST /api/v1/projects/proj_01JYV8H42T5XQ9R6B3N7D1KMWC/analyses HTTP/1.1
@@ -844,7 +905,7 @@ El ID es seguro porque el backend ya autorizó el Project y el ProcessingJob en
 el mismo workspace. Esta respuesta no es `IDEMPOTENCY_CONFLICT`: la clave es
 nueva, pero el Project ya tiene un análisis no terminal.
 
-### 14.4 Polling de un queued o processing job
+### 14.5 Polling de un queued o processing job
 
 ```http
 GET /api/v1/processing-jobs/job_01JYV94G6T2P8M5R9K3X7QNWCB HTTP/1.1
@@ -899,7 +960,7 @@ Una lectura posterior puede mostrar progreso sin cambiar el job:
 }
 ```
 
-### 14.5 Recibir awaiting input
+### 14.6 Recibir awaiting input
 
 ```http
 HTTP/1.1 200 OK
@@ -938,7 +999,7 @@ observar `state = cancelled`. Solo entonces un nuevo `POST /analyses` con otra
 clave crea otro ProcessingJob. El job anterior libera su reserva activa cuando
 sea seguro y conserva su `sourceId` original.
 
-### 14.6 Recibir un completed analysis con recommendations
+### 14.7 Recibir un completed analysis con recommendations
 
 El job completado referencia el resultado:
 
@@ -1027,7 +1088,7 @@ GET /api/v1/analyses/ana_01JYV9K8R4T2M7Q5G3X6PNWCB/recommendations?limit=20 HTTP
 }
 ```
 
-### 14.7 Recibir un completed analysis con zero recommendations
+### 14.8 Recibir un completed analysis con zero recommendations
 
 ```json
 {
@@ -1068,7 +1129,7 @@ La colección asociada responde exitosamente con un array vacío:
 La ausencia válida de momentos no es `failed` y no autoriza fabricar
 recomendaciones.
 
-### 14.8 Recibir un safe validation error
+### 14.9 Recibir un safe validation error
 
 ```http
 POST /api/v1/projects HTTP/1.1
@@ -1095,7 +1156,7 @@ Content-Type: application/json; charset=utf-8
 }
 ```
 
-### 14.9 Recibir un safe not-found response
+### 14.10 Recibir un safe not-found response
 
 La respuesta es idéntica si el ID no existe o pertenece a otro workspace:
 
@@ -1119,7 +1180,7 @@ Content-Type: application/json; charset=utf-8
 
 No se revela tipo real, owner, workspace ni existencia del recurso.
 
-### 14.10 Listar usage ledger entries con cursor pagination
+### 14.11 Listar usage ledger entries con cursor pagination
 
 ```http
 GET /api/v1/usage/ledger?limit=2&cursor=cur_eyJvY2N1cnJlZEF0IjoiLi4uIn0 HTTP/1.1
@@ -1167,7 +1228,7 @@ Content-Type: application/json; charset=utf-8
 El cursor es opaco aunque el ejemplo parezca codificado. La unidad `analysis`
 y las cantidades son ilustrativas y no definen el modelo comercial.
 
-### 14.11 Archivar un project con un active job
+### 14.12 Archivar un project con un active job
 
 El archive no cancela automáticamente un ProcessingJob:
 
@@ -1413,20 +1474,22 @@ Estado real del repositorio al publicar esta versión:
 | `GET /api/v1/me` | `Implemented — internal User and Workspace projection` |
 | `POST /api/v1/projects` | `Implemented — workspace-scoped and idempotent` |
 | `GET /api/v1/projects` | `Implemented — workspace-scoped cursor pagination` |
+| `POST /api/v1/projects/:projectId/upload-intents` | `Implemented — private temporary PUT target` |
 | `GET /health/live` | `Planned Phase 0 / Not implemented` |
 | `GET /health/ready` | `Planned Phase 0 / Not implemented` |
 | JWT identity verification | `Implemented and locally verified` |
 | Session lifecycle | `Not implemented` |
 | Express application y routes | `Partially implemented` |
-| PostgreSQL, Prisma schema y migrations | `Partially implemented — User, Workspace and Project` |
+| PostgreSQL, Prisma schema y migrations | `Partially implemented — User, Workspace, Project, Source and UploadIntent` |
 | ProcessingJob worker y queue integration | `Not implemented` |
 | Usage reservations y ledger | `Not implemented` |
 
-`client/` continúa sin aplicación. `server/` persiste `User`, `Workspace`
-personal y `Project`; crea y lista Projects con aislamiento de workspace, pero
-no procesa videos ni cobra uso. Las 74 pruebas unitarias y las 24 pruebas
+`client/` continúa sin aplicación. `server/` persiste `User`, `Workspace`,
+`Project`, `Source` y `UploadIntent`; crea y lista Projects y emite targets
+temporales de upload con aislamiento de workspace, pero no confirma objetos,
+procesa videos ni cobra uso. Las 108 pruebas unitarias y las 42 pruebas
 PostgreSQL pasan localmente. La ejecución remota del CI para esta ampliación
-permanece pendiente hasta publicar el commit.
+permanece pendiente hasta publicar los cambios.
 
 ## 20. Open API decisions
 
@@ -1435,8 +1498,9 @@ ejemplos:
 
 1. Lifecycle del Bearer access token con Supabase Auth, refresh, revocación,
    logout, recuperación y controles CORS/CSRF asociados.
-2. Contrato de intención/finalización de upload, tamaños, duración, idiomas,
-   expiración de handles y verificación de MP4, MOV, MP3 y WAV.
+2. Contrato de finalización de upload, duración, idiomas, expiración definitiva
+   de handles y verificación real de MP4, MOV, MP3 y WAV. La intención inicial
+   usa provisionalmente 250 MiB y diez minutos.
 3. Texto legal, `statementVersion`, valores de `authorizationBasis`, revocación
    y evidencia necesaria para OwnershipAttestation.
 4. Longitudes máximas, límites exactos de body y reglas de normalización de los
@@ -1465,7 +1529,8 @@ los success/error envelopes, la inmutabilidad de Source por ProcessingJob, la
 idempotencia del inicio de análisis, el polling inicial ni la validez de un
 Analysis completado con cero recomendaciones. Tampoco están abiertas la regla
 de un solo ProcessingJob de análisis no terminal por Project ni la obligación
-de rechazar el archive mientras exista ese job. Para el primer MVP tampoco
-están abiertos el upload como `Source`, Supabase Auth, la interfaz de storage
-compatible con S3 ni OpenAI como proveedor inicial detrás de adapters. Todos
-siguen `Not implemented`.
+de rechazar el archive mientras exista ese job. Para el primer MVP tampoco están
+abiertas las direcciones de upload como `Source`, Supabase Auth, storage
+compatible con S3 ni OpenAI detrás de adapters. La intención inicial y el signer
+S3-compatible ya están implementados; el lifecycle de sesión, bucket real,
+confirmación, procesamiento y OpenAI siguen `Not implemented`.

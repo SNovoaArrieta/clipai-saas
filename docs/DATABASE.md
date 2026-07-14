@@ -187,8 +187,8 @@ longitudes, defaults ni nombres definitivos de índices.
   `ON DELETE RESTRICT` y `ON UPDATE CASCADE`. La clave técnica de creación es
   única por workspace para cumplir `Idempotency-Key` sin identificar Projects
   por título. El índice `(workspaceId, updatedAt DESC, id DESC)` respalda el
-  listado privado estable. `activeSourceId` permanece fuera del schema hasta la
-  implementación posterior de `Source`.
+  listado privado estable. `activeSourceId` permanece fuera del schema hasta una
+  tarea posterior que autorice la activación de Sources.
   `20260713184500_project_foundation` fue aplicada localmente a `clipai_test`;
   quince pruebas PostgreSQL verificaron persistencia, scope, idempotencia
   concurrente, nombres duplicados, orden, paginación, foreign key, `RESTRICT` y
@@ -217,6 +217,24 @@ longitudes, defaults ni nombres definitivos de índices.
 - **Eliminación:** archive/soft-delete y eliminación coordinada del objeto
   externo. Se restringe el hard-delete mientras existan transcripts, análisis,
   attestations o jobs que deban conservarse.
+- **Estado implementado:** `Source` conserva `workspaceId`, `projectId`, tipo
+  `upload`, estado inicial `submitted`, `safeReference`, `durationMs` nullable,
+  `isActive = false` y timestamps. La foreign key compuesta
+  `(projectId, workspaceId) → Project(id, workspaceId)` impide asociaciones
+  cross-tenant incluso ante escrituras directas.
+
+### `UploadIntent`
+
+- **Propósito:** registrar la capacidad temporal y todavía incompleta de cargar
+  el objeto privado de un único `Source`.
+- **Campos implementados:** UUID, scope de workspace y Project, `sourceId`,
+  object key opaca, filename y declaraciones de tipo/tamaño, expiración,
+  `completedAt` nullable, timestamps y clave idempotente tenant-safe.
+- **Restricciones:** `sourceId` y object key son únicos; la relación compuesta
+  con Source mantiene los tres IDs coherentes. La URL firmada, credenciales y
+  payloads del SDK nunca se persisten. `completedAt` permanece `null` hasta una
+  tarea posterior. La limpieza automática de intenciones expiradas también
+  permanece pendiente.
 
 ### `OwnershipAttestation`
 
@@ -757,7 +775,7 @@ funcionalidad sea autorizada y se definan sus invariantes.
 | Tema | Riesgo o decisión pendiente | Tratamiento provisional |
 | --- | --- | --- |
 | Authentication | Supabase Auth está aprobado; session lifecycle, cambio de email y recuperación detallada siguen pendientes. | Mantener `User.id` interno y referencias externas secundarias; no guardar passwords ni tokens. |
-| Source inputs | Upload MP4, MOV, MP3 y WAV está aprobado; tamaños, idiomas y duración máxima siguen pendientes. | Usar `sourceType = upload` y una `sourceReference` opaca. |
+| Source inputs | Upload MP4, MOV, MP3 y WAV está aprobado; idiomas y duración máxima siguen pendientes. | Usar `sourceType = upload`, referencia opaca y límite provisional de 250 MiB; verificar bytes y MIME reales al confirmar. |
 | Object storage | Interfaz privada S3-compatible aprobada; provider, región y lifecycle siguen pendientes. | No guardar binarios grandes en PostgreSQL ni signed URLs duraderas. |
 | Transcript storage | Falta decidir si texto completo y segmentos vivirán íntegramente en PostgreSQL o usarán storage externo. | PostgreSQL conserva metadata, relaciones, estado y referencias autoritativas. |
 | Calidad temporal | Overlaps, gaps, precisión y tolerancias dependen del mecanismo real de transcripción. | Exigir milisegundos válidos, orden y respaldo verificable; no inventar tiempos. |

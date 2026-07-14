@@ -4,6 +4,32 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Private upload intent and Source foundation
+
+### Added
+
+- Modelos `Source` y `UploadIntent` con relaciones compuestas tenant-safe,
+  idempotencia durable, expiración y object key opaca generada server-side.
+- `POST /api/v1/projects/:projectId/upload-intents` para declaraciones MP4, MOV,
+  MP3 y WAV de hasta 250 MiB provisionales.
+- Contrato provider-neutral `ObjectStorage` y adapter modular
+  `S3ObjectStorage` para targets privados `PUT` firmados por diez minutos.
+- Configuración estricta `disabled | s3`; producción rechaza storage desactivado.
+
+### Scope and validation status
+
+- La URL firmada no se persiste y el endpoint no devuelve object key, bucket,
+  credenciales ni ownership interno como campos.
+- No se ejecuta PUT, no se contacta un bucket real y no se verifica todavía
+  existencia, MIME, tamaño o estructura real del objeto.
+- Source permanece `submitted`, inactiva y sin attestation; no se crean Jobs,
+  transcripts, análisis ni integración OpenAI.
+- Las pruebas usan signer local con credenciales sintéticas y storage falso para
+  PostgreSQL. El CI remoto continúa pendiente porque esta tarea no hace push.
+- Las 108 pruebas unitarias y 42 pruebas PostgreSQL pasan localmente; la tercera
+  migración quedó aplicada y el smoke HTTP verificó creación, replay y
+  aislamiento cross-workspace sin ejecutar el PUT.
+
 ## 2026-07-13 — Workspace-scoped Project foundation
 
 ### Added

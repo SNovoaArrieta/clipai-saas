@@ -395,7 +395,8 @@ permitidos requiere revisión del threat model y controles de egress.
 ### Uploads
 
 El upload directo de MP4, MOV, MP3 y WAV está `Approved` como primer Source. La
-implementación y verificación de los controles siguen pendientes. Los uploads:
+intención privada inicial está implementada; confirmación, inspección real y los
+controles posteriores siguen pendientes. Los uploads:
 
 - requerirán una sesión y una intención server-side previa;
 - usarán referencias y object keys aleatorios, no paths elegidos por el usuario;
@@ -411,6 +412,15 @@ implementación y verificación de los controles siguen pendientes. Los uploads:
 - usarán acceso temporal, de alcance mínimo y sin signed URLs duraderas; y
 - eliminarán objetos incompletos, rechazados y expirados mediante un lifecycle
   definido.
+
+La implementación actual genera object keys aleatorias server-side y targets
+`PUT` firmados por diez minutos sobre storage S3-compatible privado. Solo valida
+filename, extensión, `Content-Type` y tamaño declarados (máximo provisional
+262144000 bytes). No ejecuta el PUT, no contacta un bucket, no confirma
+existencia, MIME o tamaño real, y no activa ni acepta el Source. La URL temporal
+se entrega con `Cache-Control: no-store`, no se persiste ni se registra.
+La eliminación de intenciones expiradas y objetos incompletos sigue pendiente
+de una política de lifecycle; su expiración no demuestra que exista un objeto.
 
 Los nombres originales se tratarán como metadata no confiable: se limitarán,
 normalizarán para presentación y nunca se usarán como filesystem paths.
@@ -702,14 +712,14 @@ Estado real del repositorio al publicar esta versión:
 | --- | --- |
 | Security Foundation | `Approved as initial security baseline` |
 | Frontend productivo | `Not implemented` |
-| API de Internal Alpha | `Identity and workspace-scoped Project create/list implemented` |
+| API de Internal Alpha | `Identity, Project create/list and private upload intent implemented` |
 | Supabase JWT verification | `Control implemented / locally verified` |
 | Session lifecycle | `Requirement pending detail` |
-| Autorización por Workspace | `Project create/list implemented / locally verified` |
+| Autorización por Workspace | `Project and upload intent isolation implemented / locally verified` |
 | PostgreSQL, Prisma y migrations | `Control implemented / locally verified` |
 | Worker y queue | `Not implemented` |
 | OpenAI para IA y transcripción | `Approved initial provider / Not implemented` |
-| Object storage S3-compatible y upload flow | `Approved direction / Not implemented` |
+| Object storage S3-compatible y upload flow | `PUT signer and intent implemented / real bucket not validated` |
 | Hosting, región, networking y secret management | `Deferred` |
 | Logging, alerting y security scanning | `Deferred` |
 | Retention, deletion e incident policies | `Not approved` |
@@ -837,8 +847,8 @@ sustituye la ejecución remota del CI ni valida un entorno productivo.
 | Autenticación | Supabase Auth; registro, login, recuperación y validación backend de tokens; nunca passwords en ClipAI | `JWT verification implemented / remaining lifecycle pending` |
 | Sesiones | Rechazo de token ausente, inválido, expirado o revocado; transporte, CSRF/CORS, logout y recuperación probados | `Requirement pending detail` |
 | Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Project create/list isolation implemented / locally verified` |
-| Upload | Solo MP4, MOV, MP3 y WAV; MIME real, tamaño, duración, frecuencia, archivo incompleto y contenido malicioso se tratan explícitamente | `Decision approved / Requirement defined` |
-| Object storage | Bucket privado S3-compatible; claves opacas aisladas; URLs firmadas mínimas; sin acceso público; lifecycle de objetos fallidos | `Decision approved / Requirement defined` |
+| Upload | Intención privada para MP4, MOV, MP3 y WAV; MIME real, tamaño, duración, frecuencia, archivo incompleto y contenido malicioso siguen pendientes | `Initial intent implemented / real object validation pending` |
+| Object storage | Adapter S3-compatible y URL PUT temporal implementados; bucket, permisos y lifecycle reales no validados | `Signer implemented / real bucket validation pending` |
 | Jobs | Idempotencia, un efecto por transición, retries acotados, timeout, cancelación y recuperación sin doble consumo | `Requirement defined` |
 | Transcripción | Adapter de OpenAI; modelo configurable; minimización de datos; errores, timeouts, cancelación, retención, eliminación y consumo documentados | `Decision approved / Requirement defined` |
 | IA | Adapter de OpenAI; prompts y schemas versionados; modelo configurable; output no confiable y validado antes de persistir | `Decision approved / Requirement defined` |

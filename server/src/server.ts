@@ -4,6 +4,8 @@ import { createPrismaDatabaseClient } from './database/prisma-database-client.js
 import { SupabaseIdentityVerifier } from './identity/supabase-identity-verifier.js';
 import { PrismaProjectService } from './projects/prisma-project-service.js';
 import { PrismaIdentityProvisioner } from './provisioning/prisma-identity-provisioner.js';
+import { S3ObjectStorage } from './storage/s3-object-storage.js';
+import { PrismaUploadIntentService } from './uploads/prisma-upload-intent-service.js';
 
 const env = loadEnv();
 const identityVerifier =
@@ -25,10 +27,27 @@ const projectService =
   databaseClient === undefined
     ? undefined
     : new PrismaProjectService(databaseClient.prisma);
+const uploadIntentService =
+  databaseClient === undefined
+    ? undefined
+    : new PrismaUploadIntentService(databaseClient.prisma);
+const objectStorage =
+  env.storageMode === 's3'
+    ? new S3ObjectStorage({
+        endpoint: env.s3Endpoint,
+        region: env.s3Region,
+        bucket: env.s3Bucket,
+        accessKeyId: env.s3AccessKeyId,
+        secretAccessKey: env.s3SecretAccessKey,
+        forcePathStyle: env.s3ForcePathStyle,
+      })
+    : undefined;
 const app = createApp({
   ...(identityVerifier === undefined ? {} : { identityVerifier }),
   ...(identityProvisioner === undefined ? {} : { identityProvisioner }),
   ...(projectService === undefined ? {} : { projectService }),
+  ...(uploadIntentService === undefined ? {} : { uploadIntentService }),
+  ...(objectStorage === undefined ? {} : { objectStorage }),
 });
 
 const httpServer = app.listen(env.port, () => {

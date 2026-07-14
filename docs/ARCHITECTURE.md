@@ -273,6 +273,14 @@ estable. El cliente no puede aportar ni reemplazar el workspace.
 Este límite fue verificado localmente con dos workspaces y mediante HTTP real;
 el Project de un workspace no apareció en el listado del otro.
 
+La fundación de upload añade un contrato estrecho `ObjectStorage` y un adapter
+`S3ObjectStorage` que solo firma targets `PUT`; el dominio no importa el SDK.
+La ruta valida primero identidad, scope y declaraciones, firma fuera de la
+transacción y crea `Source` + `UploadIntent` atómicamente. Las relaciones
+compuestas en PostgreSQL hacen tenant-safe la asociación aunque una escritura
+eluda la aplicación. Firmar no lee ni escribe el bucket, y ninguna URL firmada
+se guarda en PostgreSQL.
+
 El modelo conceptual incluye:
 
 | Concepto | Propiedad y propósito |

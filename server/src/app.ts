@@ -8,11 +8,15 @@ import type { ProjectService } from './projects/project-service.js';
 import type { IdentityProvisioner } from './provisioning/identity-provisioner.js';
 import { createApiRouter } from './routes/index.js';
 import { AppError } from './shared/errors/app-error.js';
+import type { ObjectStorage } from './storage/object-storage.js';
+import type { UploadIntentService } from './uploads/upload-intent-service.js';
 
 export interface AppDependencies {
   readonly identityVerifier?: IdentityVerifier;
   readonly identityProvisioner?: IdentityProvisioner;
   readonly projectService?: ProjectService;
+  readonly uploadIntentService?: UploadIntentService;
+  readonly objectStorage?: ObjectStorage;
 }
 
 const notFoundHandler: RequestHandler = (request, response, next) => {
@@ -28,6 +32,21 @@ const errorHandler: ErrorRequestHandler = (
   next,
 ) => {
   void next;
+
+  if (
+    error instanceof SyntaxError &&
+    'status' in error &&
+    error.status === 400 &&
+    request.path.includes('/upload-intents')
+  ) {
+    response.status(400).json({
+      error: {
+        code: 'UPLOAD_INPUT_INVALID',
+        message: 'Upload input is invalid.',
+      },
+    });
+    return;
+  }
 
   if (
     error instanceof SyntaxError &&

@@ -50,6 +50,7 @@ describe('environment configuration', () => {
       port: 3000,
       authMode: 'disabled',
       supabaseJwtAudience: 'authenticated',
+      storageMode: 'disabled',
     });
   });
 
@@ -127,6 +128,7 @@ describe('environment configuration', () => {
       authMode: 'supabase',
       supabaseUrl: 'https://project.supabase.co',
       supabaseJwtAudience: 'authenticated',
+      storageMode: 'disabled',
     });
 
     for (const invalidUrl of [
@@ -140,5 +142,64 @@ describe('environment configuration', () => {
         loadEnv({ AUTH_MODE: 'supabase', SUPABASE_URL: invalidUrl }),
       ).toThrow('Invalid SUPABASE_URL');
     }
+  });
+
+  it('validates private S3-compatible storage configuration', () => {
+    const validStorage = {
+      STORAGE_MODE: 's3',
+      S3_ENDPOINT: 'https://storage.example.invalid/',
+      S3_REGION: 'example-region-1',
+      S3_BUCKET: 'private-example-bucket',
+      S3_ACCESS_KEY_ID: 'EXAMPLE_ACCESS_KEY_ID',
+      S3_SECRET_ACCESS_KEY: 'EXAMPLE_SECRET_ACCESS_KEY',
+      S3_FORCE_PATH_STYLE: 'false',
+    };
+
+    expect(loadEnv(validStorage)).toMatchObject({
+      storageMode: 's3',
+      s3Endpoint: 'https://storage.example.invalid',
+      s3Region: 'example-region-1',
+      s3Bucket: 'private-example-bucket',
+      s3ForcePathStyle: false,
+    });
+    expect(() =>
+      loadEnv({
+        ...validStorage,
+        S3_ENDPOINT: 'https://user:secret@storage.example.invalid',
+      }),
+    ).toThrow('Invalid S3_ENDPOINT');
+    expect(() =>
+      loadEnv({
+        ...validStorage,
+        S3_ENDPOINT: 'http://storage.example.invalid',
+      }),
+    ).toThrow('Invalid S3_ENDPOINT');
+    expect(
+      loadEnv({
+        ...validStorage,
+        NODE_ENV: 'test',
+        S3_ENDPOINT: 'http://127.0.0.1:9000/',
+        S3_FORCE_PATH_STYLE: 'true',
+      }),
+    ).toMatchObject({
+      s3Endpoint: 'http://127.0.0.1:9000',
+      s3ForcePathStyle: true,
+    });
+    expect(() =>
+      loadEnv({ ...validStorage, S3_FORCE_PATH_STYLE: '1' }),
+    ).toThrow('Invalid S3_FORCE_PATH_STYLE');
+  });
+
+  it('rejects disabled storage in production', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        PORT: '3000',
+        AUTH_MODE: 'supabase',
+        SUPABASE_URL: 'https://project.supabase.co',
+        DATABASE_URL: 'postgresql://user:password@localhost:5432/clipai',
+        STORAGE_MODE: 'disabled',
+      }),
+    ).toThrow('object storage cannot be disabled in production');
   });
 });
