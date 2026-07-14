@@ -254,8 +254,10 @@ y configuración del proyecto real siguen pendientes de verificación.
 El frontend de sesión, refresh, revocación, recuperación, logout, controles de
 abuso, CORS/CSRF y pruebas con un proyecto real permanecen
 `Requirement pending detail`. El mapeo persistido a `User` y la resolución de
-su único `Workspace` personal ya existen. La autorización de recursos,
-incluido el aislamiento de Projects, continúa sin implementar.
+su único `Workspace` personal ya existen. La creación y el listado de Projects
+resuelven el workspace server-side, rechazan campos de ownership controlados por
+el cliente y exigen scope de tenant en las consultas PostgreSQL. La autorización
+de los recursos posteriores continúa sin implementar.
 
 Independientemente del mecanismo elegido:
 
@@ -700,10 +702,10 @@ Estado real del repositorio al publicar esta versión:
 | --- | --- |
 | Security Foundation | `Approved as initial security baseline` |
 | Frontend productivo | `Not implemented` |
-| API de Internal Alpha | `Server foundation and identity route implemented` |
+| API de Internal Alpha | `Identity and workspace-scoped Project create/list implemented` |
 | Supabase JWT verification | `Control implemented / locally verified` |
 | Session lifecycle | `Requirement pending detail` |
-| Autorización por Workspace | `Designed / Not implemented` |
+| Autorización por Workspace | `Project create/list implemented / locally verified` |
 | PostgreSQL, Prisma y migrations | `Control implemented / locally verified` |
 | Worker y queue | `Not implemented` |
 | OpenAI para IA y transcripción | `Approved initial provider / Not implemented` |
@@ -821,13 +823,20 @@ estados anteriores. El job PostgreSQL de CI está configurado para repetir esta
 validación sobre una base efímera, pero permanece pendiente de evidencia remota
 hasta que el workflow se ejecute en GitHub.
 
+La fundación de Project añade quince pruebas PostgreSQL para creación scoped,
+idempotencia concurrente, aislamiento entre dos workspaces, cursor
+cross-workspace, orden, paginación, foreign key, `ON DELETE RESTRICT` y limpieza
+dirigida. La validación HTTP local confirmó `201` para creación, listados
+aislados y responses sin `workspaceId` ni `authSubject`. Esta evidencia no
+sustituye la ejecución remota del CI ni valida un entorno productivo.
+
 ### Criterios previos a completar el vertical slice
 
 | Área | Decisión o requisito verificable | Estado actual |
 | --- | --- | --- |
 | Autenticación | Supabase Auth; registro, login, recuperación y validación backend de tokens; nunca passwords en ClipAI | `JWT verification implemented / remaining lifecycle pending` |
 | Sesiones | Rechazo de token ausente, inválido, expirado o revocado; transporte, CSRF/CORS, logout y recuperación probados | `Requirement pending detail` |
-| Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Personal provisioning implemented / resource isolation pending` |
+| Workspace | Cada acceso privado resuelve usuario y pertenencia server-side; queries y relaciones filtran por `workspaceId`; cross-tenant denegado | `Project create/list isolation implemented / locally verified` |
 | Upload | Solo MP4, MOV, MP3 y WAV; MIME real, tamaño, duración, frecuencia, archivo incompleto y contenido malicioso se tratan explícitamente | `Decision approved / Requirement defined` |
 | Object storage | Bucket privado S3-compatible; claves opacas aisladas; URLs firmadas mínimas; sin acceso público; lifecycle de objetos fallidos | `Decision approved / Requirement defined` |
 | Jobs | Idempotencia, un efecto por transición, retries acotados, timeout, cancelación y recuperación sin doble consumo | `Requirement defined` |

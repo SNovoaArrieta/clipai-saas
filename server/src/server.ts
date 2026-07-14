@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { loadEnv } from './config/env.js';
 import { createPrismaDatabaseClient } from './database/prisma-database-client.js';
 import { SupabaseIdentityVerifier } from './identity/supabase-identity-verifier.js';
+import { PrismaProjectService } from './projects/prisma-project-service.js';
 import { PrismaIdentityProvisioner } from './provisioning/prisma-identity-provisioner.js';
 
 const env = loadEnv();
@@ -20,9 +21,14 @@ const identityProvisioner =
   databaseClient === undefined
     ? undefined
     : new PrismaIdentityProvisioner(databaseClient.prisma);
+const projectService =
+  databaseClient === undefined
+    ? undefined
+    : new PrismaProjectService(databaseClient.prisma);
 const app = createApp({
   ...(identityVerifier === undefined ? {} : { identityVerifier }),
   ...(identityProvisioner === undefined ? {} : { identityProvisioner }),
+  ...(projectService === undefined ? {} : { projectService }),
 });
 
 const httpServer = app.listen(env.port, () => {

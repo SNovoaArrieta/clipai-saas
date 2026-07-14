@@ -4,6 +4,36 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-13 — Workspace-scoped Project foundation
+
+### Added
+
+- Modelo Prisma y migración para `Project`, con `title`, lifecycle mínimo,
+  relación obligatoria con `Workspace`, idempotencia de creación e índice de
+  listado por workspace y orden temporal.
+- `RequestPrincipal` tipado y request-scoped compartido por `/api/v1/me` y las
+  rutas protegidas de Project.
+- `POST /api/v1/projects` y `GET /api/v1/projects` con workspace resuelto
+  server-side, validación estricta, cursor y errores públicos seguros.
+- 34 pruebas unitarias de Project y 15 escenarios PostgreSQL de persistencia,
+  idempotencia, aislamiento, paginación, foreign key y limpieza dirigida.
+
+### Validation status
+
+- Las 74 pruebas unitarias pasan sin PostgreSQL, Supabase real ni acceso a
+  Internet.
+- `20260713184500_project_foundation` fue aplicada a `clipai_test` y
+  `migrate status` confirmó las dos migraciones al día.
+- Las 24 pruebas PostgreSQL pasan: nueve regresiones de identidad y quince
+  escenarios de Project. La validación HTTP confirmó creación `201`, listado,
+  aislamiento entre dos workspaces y ausencia de ownership interno en responses.
+- La base local quedó sin Projects, Users o Workspaces sintéticos y conservó
+  ambas migraciones.
+- El CI remoto para esta ampliación continúa pendiente hasta publicar el commit;
+  esta revisión no realiza push.
+- No se añadieron Sources, uploads, Jobs, transcripts, análisis, IA, equipos,
+  memberships, billing, eliminación ni archivado HTTP.
+
 ## 2026-07-13 — Internal user and personal workspace persistence
 
 ### Added

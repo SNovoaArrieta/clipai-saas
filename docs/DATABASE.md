@@ -181,6 +181,18 @@ longitudes, defaults ni nombres definitivos de índices.
 - **Eliminación:** `archived` será la opción normal. Un borrado físico posterior
   podrá eliminar contenido dependiente solo tras comprobar restricciones de
   evidencias, jobs y uso.
+- **Estado implementado:** `Project` contiene UUID interno, `workspaceId`
+  obligatorio, `title` de hasta 160 caracteres, `state`, timestamps y
+  `archivedAt` nullable. La foreign key hacia `Workspace.id` usa
+  `ON DELETE RESTRICT` y `ON UPDATE CASCADE`. La clave técnica de creación es
+  única por workspace para cumplir `Idempotency-Key` sin identificar Projects
+  por título. El índice `(workspaceId, updatedAt DESC, id DESC)` respalda el
+  listado privado estable. `activeSourceId` permanece fuera del schema hasta la
+  implementación posterior de `Source`.
+  `20260713184500_project_foundation` fue aplicada localmente a `clipai_test`;
+  quince pruebas PostgreSQL verificaron persistencia, scope, idempotencia
+  concurrente, nombres duplicados, orden, paginación, foreign key, `RESTRICT` y
+  limpieza dirigida.
 
 ### `Source`
 

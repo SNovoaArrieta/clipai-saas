@@ -7,7 +7,7 @@
 | Documento | `05 — API Foundation` |
 | Versión | `0.3` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — identity persistence implemented` |
+| Estado de implementación | `Partial — Project create/list implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-13 |
 
@@ -17,10 +17,10 @@ convenciones REST, contratos preliminares, límites de seguridad y el
 comportamiento observable del procesamiento asíncrono.
 
 La fundación del servidor, `GET /health`, la frontera protegida de identidad y
-el provisioning persistido de `User` y `Workspace` personal están
-implementados. El resto de rutas de dominio continúa en estado
-`Draft / Not implemented`; este documento no crea una API pública para terceros
-ni presenta el SaaS completo como construido.
+el provisioning persistido de `User` y `Workspace` personal, y la creación y el
+listado de `Project`, están implementados. El resto de rutas de dominio continúa
+en estado `Draft / Not implemented`; este documento no crea una API pública para
+terceros ni presenta el SaaS completo como construido.
 
 La documentación se escribe en español. Rutas, headers, campos, entidades,
 estados y códigos de error se mantienen en English para que puedan convertirse
@@ -369,8 +369,8 @@ actualizar su estado sin una lectura adicional.
 
 ## 13. Draft endpoint catalog
 
-Todos los domain endpoints de esta sección tienen estado
-`Draft / Not implemented`.
+Los endpoints indican individualmente su estado. Solo la proyección de identidad
+y la creación y listado de Projects están implementados.
 
 ### Authentication/session boundary
 
@@ -410,8 +410,8 @@ Tras autenticación válida, una persistencia no configurada responde
 
 | Estado | Método y ruta | Auth | Request | Response | Success |
 | --- | --- | --- | --- | --- | --- |
-| `Draft / Not implemented` | `POST /api/v1/projects` | Required | `{ title }` + `Idempotency-Key` | Project en `draft` | `201` |
-| `Draft / Not implemented` | `GET /api/v1/projects` | Required | `cursor`, `limit` | Projects paginados | `200` |
+| `Implemented — workspace-scoped foundation` | `POST /api/v1/projects` | Required | `{ title }` + `Idempotency-Key` | Project en `draft` | `201` |
+| `Implemented — workspace-scoped foundation` | `GET /api/v1/projects` | Required | `cursor`, `limit` | Projects paginados | `200` |
 | `Draft / Not implemented` | `GET /api/v1/projects/:projectId` | Required | Sin body | Project | `200` |
 | `Draft / Not implemented` | `PATCH /api/v1/projects/:projectId` | Required | `{ title }` | Project actualizado | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/archive` | Required | `{}` | Project en `archived` | `200` |
@@ -419,6 +419,24 @@ Tras autenticación válida, una persistencia no configurada responde
 Project expone `id`, `title`, `state`, `activeSourceId`, `createdAt`,
 `updatedAt` y `archivedAt`. `state` usa `draft`, `active` o `archived`. Crear un
 proyecto nunca crea Source, ProcessingJob, reserva ni queue message.
+
+La fundación implementada expone `id`, `title`, `state`, `createdAt`,
+`updatedAt` y `archivedAt`; `activeSourceId` se añadirá únicamente cuando exista
+`Source`. `title` se recorta en sus extremos, admite Unicode, exige entre 1 y
+160 caracteres y rechaza caracteres de control. El body acepta exclusivamente
+`title`; ownership, IDs, estado y timestamps son server-controlled.
+
+`POST /api/v1/projects` deriva el workspace del contexto interno y exige la
+clave idempotente normativa. Una replay equivalente devuelve el mismo Project
+con `201` e `Idempotency-Replayed: true`; reutilizar la clave con otro título
+devuelve `409 IDEMPOTENCY_CONFLICT`.
+
+`GET /api/v1/projects` filtra en PostgreSQL por el workspace resuelto, excluye
+Projects archivados y usa `updatedAt DESC, id DESC`. `limit` conserva default
+`20`, mínimo `1` y máximo `100`. El cursor opaco contiene las claves de orden y
+el workspace interno, se valida antes de consultar y se rechaza si no coincide
+con el contexto actual. La respuesta usa `meta.page` con `limit`, `nextCursor` y `hasMore`; al finalizar,
+`nextCursor` es `null` conforme al contrato aprobado.
 
 Archivar es síncrono e idempotente cuando no existe un ProcessingJob no
 terminal. El endpoint no cancela jobs automáticamente en el MVP. Si el Project
@@ -579,8 +597,10 @@ traces.
 
 ## 14. Detailed request y response examples
 
-Todos los ejemplos son contratos de diseño. Ninguna ruta está implementada.
-Las credenciales de sesión se omiten porque su transporte sigue pendiente.
+Los ejemplos de creación y validación de Project reflejan la implementación
+actual. Los ejemplos de las demás rutas continúan como contratos de diseño no
+implementados. Las credenciales de sesión se omiten porque su transporte sigue
+pendiente.
 
 ### 14.1 Crear un draft project
 
@@ -596,8 +616,7 @@ Idempotency-Key: create-project:01JYV8D2AQ2YH8R3M7F5G9K4WP
 
 ```http
 HTTP/1.1 201 Created
-Location: /api/v1/projects/proj_01JYV8H42T5XQ9R6B3N7D1KMWC
-X-Request-Id: req_01JYV8H7VJ3B0P6X9G2M4Q5RNT
+Location: /api/v1/projects/9dbe3a14-ded1-4f9f-9ca7-e091a7a2f482
 Cache-Control: no-store
 Content-Type: application/json; charset=utf-8
 ```
@@ -605,16 +624,12 @@ Content-Type: application/json; charset=utf-8
 ```json
 {
   "data": {
-    "id": "proj_01JYV8H42T5XQ9R6B3N7D1KMWC",
+    "id": "9dbe3a14-ded1-4f9f-9ca7-e091a7a2f482",
     "title": "Episode 42 — Product strategy",
     "state": "draft",
-    "activeSourceId": null,
     "createdAt": "2026-06-27T17:05:00.000Z",
     "updatedAt": "2026-06-27T17:05:00.000Z",
     "archivedAt": null
-  },
-  "meta": {
-    "requestId": "req_01JYV8H7VJ3B0P6X9G2M4Q5RNT"
   }
 }
 ```
@@ -1068,26 +1083,14 @@ Idempotency-Key: create-project:01JYVA4M2T8R5Q3G7K6X9PNWCB
 
 ```http
 HTTP/1.1 400 Bad Request
-X-Request-Id: req_01JYVA4Q7M3T8R2G5K6X9PNWCB
 Content-Type: application/json; charset=utf-8
 ```
 
 ```json
 {
-  "code": "VALIDATION_ERROR",
-  "message": "The request body is invalid.",
-  "requestId": "req_01JYVA4Q7M3T8R2G5K6X9PNWCB",
-  "details": {
-    "fields": [
-      {
-        "field": "title",
-        "reason": "too_short"
-      },
-      {
-        "field": "workspaceId",
-        "reason": "unknown_field"
-      }
-    ]
+  "error": {
+    "code": "PROJECT_INPUT_INVALID",
+    "message": "Project input is invalid."
   }
 }
 ```
@@ -1406,22 +1409,24 @@ Estado real del repositorio al publicar esta versión:
 
 | Área | Estado |
 | --- | --- |
-| 16 domain endpoints restantes bajo `/api/v1` | `Draft / Not implemented` |
+| 14 domain endpoints restantes bajo `/api/v1` | `Draft / Not implemented` |
 | `GET /api/v1/me` | `Implemented — internal User and Workspace projection` |
+| `POST /api/v1/projects` | `Implemented — workspace-scoped and idempotent` |
+| `GET /api/v1/projects` | `Implemented — workspace-scoped cursor pagination` |
 | `GET /health/live` | `Planned Phase 0 / Not implemented` |
 | `GET /health/ready` | `Planned Phase 0 / Not implemented` |
 | JWT identity verification | `Implemented and locally verified` |
 | Session lifecycle | `Not implemented` |
 | Express application y routes | `Partially implemented` |
-| PostgreSQL, Prisma schema y migrations | `Partially implemented — User and Workspace only` |
+| PostgreSQL, Prisma schema y migrations | `Partially implemented — User, Workspace and Project` |
 | ProcessingJob worker y queue integration | `Not implemented` |
 | Usage reservations y ledger | `Not implemented` |
 
-`client/` continúa sin aplicación. `server/` persiste únicamente `User` y
-`Workspace` personal; no procesa videos, no implementa autorización de
-Projects y no cobra uso. La suite unitaria pasa localmente; las nueve pruebas
-PostgreSQL están creadas pero no se ejecutaron porque no existe una base de
-prueba configurada.
+`client/` continúa sin aplicación. `server/` persiste `User`, `Workspace`
+personal y `Project`; crea y lista Projects con aislamiento de workspace, pero
+no procesa videos ni cobra uso. Las 74 pruebas unitarias y las 24 pruebas
+PostgreSQL pasan localmente. La ejecución remota del CI para esta ampliación
+permanece pendiente hasta publicar el commit.
 
 ## 20. Open API decisions
 
@@ -1434,10 +1439,10 @@ ejemplos:
    expiración de handles y verificación de MP4, MOV, MP3 y WAV.
 3. Texto legal, `statementVersion`, valores de `authorizationBasis`, revocación
    y evidencia necesaria para OwnershipAttestation.
-4. Longitudes máximas, límites exactos de body y reglas de normalización de
-   campos públicos.
+4. Longitudes máximas, límites exactos de body y reglas de normalización de los
+   campos públicos que aún no están implementados.
 5. Retención y almacenamiento de idempotency keys y fingerprints.
-6. Codificación, firma, expiración y compatibilidad de cursores.
+6. Firma, expiración y compatibilidad futura de cursores.
 7. Intervalo inicial de polling, backoff, jitter, timeout de UX y triggers para
    considerar SSE.
 8. Rate-limit thresholds, ventanas, scopes y tratamiento de tráfico interno.

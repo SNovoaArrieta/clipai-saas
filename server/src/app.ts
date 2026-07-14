@@ -4,6 +4,7 @@ import express, {
 } from 'express';
 
 import type { IdentityVerifier } from './identity/identity-verifier.js';
+import type { ProjectService } from './projects/project-service.js';
 import type { IdentityProvisioner } from './provisioning/identity-provisioner.js';
 import { createApiRouter } from './routes/index.js';
 import { AppError } from './shared/errors/app-error.js';
@@ -11,6 +12,7 @@ import { AppError } from './shared/errors/app-error.js';
 export interface AppDependencies {
   readonly identityVerifier?: IdentityVerifier;
   readonly identityProvisioner?: IdentityProvisioner;
+  readonly projectService?: ProjectService;
 }
 
 const notFoundHandler: RequestHandler = (request, response, next) => {
@@ -25,8 +27,22 @@ const errorHandler: ErrorRequestHandler = (
   response,
   next,
 ) => {
-  void request;
   void next;
+
+  if (
+    error instanceof SyntaxError &&
+    'status' in error &&
+    error.status === 400 &&
+    request.path.startsWith('/api/v1/projects')
+  ) {
+    response.status(400).json({
+      error: {
+        code: 'PROJECT_INPUT_INVALID',
+        message: 'Project input is invalid.',
+      },
+    });
+    return;
+  }
 
   if (error instanceof AppError) {
     response.status(error.statusCode).json({

@@ -252,8 +252,8 @@ lógica.
 PostgreSQL es el system of record. Solo el backend accede a la base de datos;
 ni el navegador ni los proveedores externos tienen acceso directo. Prisma ORM
 7 usa el adapter oficial `PrismaPg`, un pool por proceso y un cliente generado
-en una ruta explícita ESM. El schema físico actual contiene exclusivamente
-`User` y `Workspace`; el resto del catálogo permanece fuera de esta tarea.
+en una ruta explícita ESM. El schema físico actual contiene `User`, `Workspace`
+y `Project`; el resto del catálogo permanece fuera de esta tarea.
 
 El flujo implementado es `IdentityVerifier → IdentityProvisioner → Prisma`.
 Una transacción hace upsert de `User` por `authSubject` y de `Workspace` por
@@ -263,6 +263,15 @@ fue verificado localmente contra PostgreSQL real con ocho solicitudes
 concurrentes y sin duplicados. El shutdown cierra HTTP, Prisma y el pool una
 sola vez. Las migraciones son explícitas y no se ejecutan durante install,
 build, tests unitarios o arranque.
+
+Las rutas de Project reutilizan un `RequestPrincipal` tipado y request-scoped.
+Después de verificar el Bearer token, el provisioning se ejecuta una sola vez y
+consume la identidad externa; los handlers reciben únicamente el `User` interno
+y su `Workspace`. `PrismaProjectService` exige `workspaceId` en cada operación,
+crea con idempotencia durable y lista mediante filtro SQL de tenant y cursor
+estable. El cliente no puede aportar ni reemplazar el workspace.
+Este límite fue verificado localmente con dos workspaces y mediante HTTP real;
+el Project de un workspace no apareció en el listado del otro.
 
 El modelo conceptual incluye:
 

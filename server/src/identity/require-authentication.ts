@@ -28,6 +28,14 @@ export function getAuthenticatedIdentity(
   return identity;
 }
 
+export function consumeAuthenticatedIdentity(
+  request: Request,
+): AuthenticatedIdentity {
+  const identity = getAuthenticatedIdentity(request);
+  delete (request as AuthenticatedRequest)[authenticatedIdentityKey];
+  return identity;
+}
+
 export function requireAuthentication(
   identityVerifier: IdentityVerifier | undefined,
 ): RequestHandler {

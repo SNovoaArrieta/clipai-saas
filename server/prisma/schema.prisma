@@ -14,6 +14,12 @@ enum WorkspaceType {
   personal
 }
 
+enum ProjectState {
+  draft
+  active
+  archived
+}
+
 model User {
   id          String     @id @default(uuid()) @db.Uuid
   authSubject String     @unique @db.Uuid
@@ -31,4 +37,20 @@ model Workspace {
   createdAt     DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
   owner         User          @relation(fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  projects      Project[]
+}
+
+model Project {
+  id                   String       @id @default(uuid()) @db.Uuid
+  workspaceId          String       @db.Uuid
+  title                String       @db.VarChar(160)
+  state                ProjectState @default(draft)
+  createIdempotencyKey String       @db.VarChar(255)
+  createdAt            DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
+  archivedAt           DateTime?    @db.Timestamptz(3)
+  workspace            Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([workspaceId, createIdempotencyKey])
+  @@index([workspaceId, updatedAt(sort: Desc), id(sort: Desc)])
 }
