@@ -399,8 +399,8 @@ permanecen configurables y pendientes de decisión operativa.
 1. **Upload autorizado.** El usuario autenticado crea una intención server-side,
    sube un MP4, MOV, MP3 o WAV a object storage privado compatible con S3 y el
    backend confirma su metadata mediante `HEAD`. Esta confirmación solo deja el
-   Source en `validating`; la autorización del contenido continúa pendiente de
-   `OwnershipAttestation`.
+   Source en `validating`. El endpoint de `OwnershipAttestation` puede registrar
+   después la declaración del usuario sin aceptar ni activar la Source.
 2. **Validación.** El backend valida token de Supabase, usuario, pertenencia al
    workspace personal, referencia opaca, MIME real, formato, límites y
    `OwnershipAttestation`. La attestation no se interpreta como garantía legal.

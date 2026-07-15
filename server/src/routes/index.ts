@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import type { AppDependencies } from '../app.js';
+import { createAttestationsRouter } from './attestations.route.js';
 import { healthRouter } from './health.route.js';
 import { createMeRouter } from './me.route.js';
 import { createProjectsRouter } from './projects.route.js';
@@ -16,6 +17,14 @@ export function createApiRouter(dependencies: AppDependencies) {
     createMeRouter(
       dependencies.identityVerifier,
       dependencies.identityProvisioner,
+    ),
+  );
+  apiRouter.use(
+    '/api/v1/projects/:projectId/sources/:sourceId/attestations',
+    createAttestationsRouter(
+      dependencies.identityVerifier,
+      dependencies.identityProvisioner,
+      dependencies.attestationService,
     ),
   );
   apiRouter.use(

@@ -4,6 +4,32 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-15 — OwnershipAttestation foundation
+
+### Added
+
+- `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` autenticado,
+  tenant-safe e idempotente para registrar `ownership-v1` sobre uploads
+  confirmados que permanecen `validating` e inactivos.
+- Entidad Prisma `OwnershipAttestation`, enum `AuthorizationBasis` y migración
+  append-only con unicidad por Source/versión y por Workspace/idempotency key,
+  relaciones compuestas de Source y actor, y `ON DELETE RESTRICT`.
+- Registry server-side con el texto inmutable, validación estricta del body y
+  serializer público mínimo sin IDs internos de Workspace, Project o actor.
+- Pruebas unitarias y HTTP reales sobre PostgreSQL para autenticación,
+  validación, estados, aislamiento tenant, replays, conflictos, concurrencia y
+  restricciones referenciales.
+
+### Scope and validation status
+
+- La attestation solo registra la declaración: no valida ownership, bytes, MIME
+  real, magic bytes o malware y no constituye garantía ni asesoría legal.
+- No cambia `Source.state`, no activa la Source y no crea jobs, transcripciones,
+  análisis, llamadas de IA ni consumo.
+- El texto `ownership-v1`, las bases de autorización, revocación y retención son
+  provisionales para Internal Alpha y requieren revisión antes de exposición
+  pública.
+
 ## 2026-07-15 — Workspace-scoped Source listing
 
 ### Added

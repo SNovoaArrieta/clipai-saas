@@ -31,24 +31,33 @@ enum SourceState {
   rejected
 }
 
+enum AuthorizationBasis {
+  owner
+  authorized_by_owner
+}
+
 model User {
-  id          String     @id @default(uuid()) @db.Uuid
-  authSubject String     @unique @db.Uuid
-  email       String?    @db.VarChar(254)
-  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime   @updatedAt @db.Timestamptz(3)
-  workspace   Workspace?
+  id                    String                 @id @default(uuid()) @db.Uuid
+  authSubject           String                 @unique @db.Uuid
+  email                 String?                @db.VarChar(254)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(3)
+  workspace             Workspace?
+  ownershipAttestations OwnershipAttestation[]
 }
 
 model Workspace {
-  id            String        @id @default(uuid()) @db.Uuid
-  ownerUserId   String        @unique @db.Uuid
-  name          String        @default("Personal workspace") @db.VarChar(120)
-  workspaceType WorkspaceType @default(personal)
-  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
-  owner         User          @relation(fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  projects      Project[]
+  id                    String                 @id @default(uuid()) @db.Uuid
+  ownerUserId           String                 @unique @db.Uuid
+  name                  String                 @default("Personal workspace") @db.VarChar(120)
+  workspaceType         WorkspaceType          @default(personal)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(3)
+  owner                 User                   @relation(fields: [ownerUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  projects              Project[]
+  ownershipAttestations OwnershipAttestation[]
+
+  @@unique([id, ownerUserId])
 }
 
 model Project {
@@ -69,23 +78,43 @@ model Project {
 }
 
 model Source {
-  id            String        @id @default(uuid()) @db.Uuid
-  workspaceId   String        @db.Uuid
-  projectId     String        @db.Uuid
-  sourceType    SourceType    @default(upload)
-  state         SourceState   @default(submitted)
-  safeReference String        @db.VarChar(255)
-  durationMs    BigInt?
-  isActive      Boolean       @default(false)
-  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
-  archivedAt    DateTime?     @db.Timestamptz(3)
-  project       Project       @relation(fields: [projectId, workspaceId], references: [id, workspaceId], onDelete: Restrict, onUpdate: Cascade)
-  uploadIntent  UploadIntent?
+  id                    String                 @id @default(uuid()) @db.Uuid
+  workspaceId           String                 @db.Uuid
+  projectId             String                 @db.Uuid
+  sourceType            SourceType             @default(upload)
+  state                 SourceState            @default(submitted)
+  safeReference         String                 @db.VarChar(255)
+  durationMs            BigInt?
+  isActive              Boolean                @default(false)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(3)
+  archivedAt            DateTime?              @db.Timestamptz(3)
+  project               Project                @relation(fields: [projectId, workspaceId], references: [id, workspaceId], onDelete: Restrict, onUpdate: Cascade)
+  uploadIntent          UploadIntent?
+  ownershipAttestations OwnershipAttestation[]
 
   @@unique([id, workspaceId, projectId])
   @@index([workspaceId, projectId])
   @@index([projectId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+model OwnershipAttestation {
+  id                   String             @id @default(uuid()) @db.Uuid
+  workspaceId          String             @db.Uuid
+  projectId            String             @db.Uuid
+  sourceId             String             @db.Uuid
+  userId               String             @db.Uuid
+  statementVersion     String             @db.VarChar(32)
+  authorizationBasis   AuthorizationBasis
+  attestedAt           DateTime           @default(now()) @db.Timestamptz(3)
+  createdAt            DateTime           @default(now()) @db.Timestamptz(3)
+  createIdempotencyKey String             @db.VarChar(255)
+  source               Source             @relation(fields: [sourceId, workspaceId, projectId], references: [id, workspaceId, projectId], onDelete: Restrict, onUpdate: Cascade)
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  workspace            Workspace          @relation(fields: [workspaceId, userId], references: [id, ownerUserId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([workspaceId, createIdempotencyKey])
+  @@unique([sourceId, statementVersion])
 }
 
 model UploadIntent {

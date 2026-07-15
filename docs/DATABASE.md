@@ -5,21 +5,22 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `04 — Data Model Foundation` |
-| Versión | `0.3` |
+| Versión | `0.4` |
 | Estado | `Approved as initial conceptual model` |
-| Estado de implementación | `Partial — User and personal Workspace implemented` |
-| Fase | Fase 0 — Foundation |
-| Última actualización | 2026-07-13 |
+| Estado de implementación | `Partial — through OwnershipAttestation foundation` |
+| Fase | Fase 1 — Internal Alpha |
+| Última actualización | 2026-07-15 |
 
 Este documento define el modelo de datos conceptual inicial de ClipAI. Su
 propósito es establecer vocabulario, ownership, relaciones, ciclos de vida e
 invariantes antes de diseñar un schema físico.
 
-PostgreSQL es el system of record y Prisma ORM 7 implementa el primer schema
-físico, limitado a `User` y `Workspace`. Las demás entidades, los detalles de
-una futura librería de queue y los controles de recursos privados continúan
-siendo conceptuales. Los nombres aquí descritos tampoco constituyen por sí
-solos un contrato público de API.
+PostgreSQL es el system of record y Prisma ORM 7 implementa actualmente
+`User`, `Workspace`, `Project`, `Source`, `UploadIntent` y
+`OwnershipAttestation`. Las demás entidades, los detalles de una futura
+librería de queue y los controles de procesamiento continúan siendo
+conceptuales. Los nombres aquí descritos tampoco constituyen por sí solos un
+contrato público de API.
 
 ## 2. Principios del modelo de datos
 
@@ -243,16 +244,27 @@ longitudes, defaults ni nombres definitivos de índices.
 
 - **Propósito:** registrar quién confirmó autorización para procesar un
   `Source`, cuándo y bajo qué versión de texto.
-- **Campos conceptuales:** `id`, `workspaceId`, `sourceId`, `userId`,
-  `statementVersion`, `authorizationBasis`, `attestedAt`, `createdAt`.
+- **Campos implementados:** `id`, `workspaceId`, `projectId`, `sourceId`,
+  `userId`, `statementVersion`, `authorizationBasis`, `attestedAt`, `createdAt`
+  y `createIdempotencyKey`.
 - **Primary ownership:** `Workspace`; el actor es un `User`.
-- **Relaciones:** pertenece a exactamente un `Source` y a un actor.
-- **Restricciones:** una fuente requiere al menos una attestation antes de ser
-  aceptada. El registro es evidencia de una declaración del usuario, no una
-  garantía legal. Los reenvíos idempotentes no crearán duplicados.
+- **Relaciones:** pertenece a exactamente un `Source` mediante
+  `(sourceId, workspaceId, projectId)`, a un actor mediante `userId` y al
+  Workspace personal de ese actor mediante `(workspaceId, userId)`. Las foreign
+  keys compuestas impiden scope o actor cross-tenant incluso ante escrituras
+  directas.
+- **Restricciones:** `statementVersion` acepta actualmente solo
+  `ownership-v1`; `authorizationBasis` usa el enum `owner` o
+  `authorized_by_owner`. Existe como máximo un registro por Source y versión y
+  una `createIdempotencyKey` por Workspace. La creación exige una Source upload
+  no archivada, `validating`, inactiva y con `UploadIntent.completedAt`; estas
+  precondiciones de estado se aplican transaccionalmente en el repositorio. El
+  registro es evidencia de una declaración del usuario, no una garantía legal,
+  y no cambia el estado ni la activación de Source.
 - **Datos sensibles:** vincula identidad, contenido y una declaración con
   posible relevancia legal.
-- **Eliminación:** restrict; no se elimina en cascade de forma silenciosa. Si la
+- **Eliminación:** las relaciones con Source, actor y Workspace usan
+  `ON DELETE RESTRICT`; no se elimina en cascade de forma silenciosa. Si la
   cuenta se anonimiza, se preservará la evidencia mínima exigible según una
   política todavía pendiente.
 

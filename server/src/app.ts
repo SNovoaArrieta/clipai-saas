@@ -3,6 +3,8 @@ import express, {
   type RequestHandler,
 } from 'express';
 
+import type { AttestationService } from './attestations/attestation-service.js';
+import { assertNoDuplicateAttestationJsonFields } from './attestations/attestation-validator.js';
 import type { IdentityVerifier } from './identity/identity-verifier.js';
 import type { ProjectService } from './projects/project-service.js';
 import type { IdentityProvisioner } from './provisioning/identity-provisioner.js';
@@ -13,6 +15,7 @@ import type { SourceService } from './sources/source-service.js';
 import type { UploadIntentService } from './uploads/upload-intent-service.js';
 
 export interface AppDependencies {
+  readonly attestationService?: AttestationService;
   readonly identityVerifier?: IdentityVerifier;
   readonly identityProvisioner?: IdentityProvisioner;
   readonly projectService?: ProjectService;
@@ -34,6 +37,21 @@ const errorHandler: ErrorRequestHandler = (
   next,
 ) => {
   void next;
+
+  if (
+    error instanceof SyntaxError &&
+    'status' in error &&
+    error.status === 400 &&
+    request.path.includes('/attestations')
+  ) {
+    response.status(400).json({
+      error: {
+        code: 'ATTESTATION_INPUT_INVALID',
+        message: 'Attestation input is invalid.',
+      },
+    });
+    return;
+  }
 
   if (
     error instanceof SyntaxError &&
@@ -103,7 +121,15 @@ export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (request, _response, buffer) => {
+        if (request.url?.includes('/attestations') === true) {
+          assertNoDuplicateAttestationJsonFields(buffer);
+        }
+      },
+    }),
+  );
   app.use(createApiRouter(dependencies));
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -1,4 +1,6 @@
 import { createApp } from './app.js';
+import { PrismaAttestationRepository } from './attestations/prisma-attestation-repository.js';
+import { DefaultAttestationService } from './attestations/attestation-service.js';
 import { loadEnv } from './config/env.js';
 import { createPrismaDatabaseClient } from './database/prisma-database-client.js';
 import { SupabaseIdentityVerifier } from './identity/supabase-identity-verifier.js';
@@ -39,6 +41,12 @@ const sourceService =
     : new DefaultSourceService(
         new PrismaSourceRepository(databaseClient.prisma),
       );
+const attestationService =
+  databaseClient === undefined
+    ? undefined
+    : new DefaultAttestationService(
+        new PrismaAttestationRepository(databaseClient.prisma),
+      );
 const objectStorage =
   env.storageMode === 's3'
     ? new S3ObjectStorage({
@@ -51,6 +59,7 @@ const objectStorage =
       })
     : undefined;
 const app = createApp({
+  ...(attestationService === undefined ? {} : { attestationService }),
   ...(identityVerifier === undefined ? {} : { identityVerifier }),
   ...(identityProvisioner === undefined ? {} : { identityProvisioner }),
   ...(projectService === undefined ? {} : { projectService }),

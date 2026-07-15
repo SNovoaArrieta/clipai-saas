@@ -367,11 +367,16 @@ fuentes URL están fuera del primer MVP y siguen `Deferred`; cualquier fuente
 futura requiere ADR, threat model y mecanismos de acceso aprobados antes de
 implementarse.
 
-Cada Source requerirá una `OwnershipAttestation` ligada al usuario, workspace,
-fuente, versión exacta del texto aceptado, base declarada y momento. Una
-attestation no se reutiliza para otra fuente, no demuestra por sí sola que el
-usuario posea los derechos y no sustituye controles de acceso ni revisión
-legal. Su texto, revocación y periodo de conservación permanecen pendientes.
+La foundation implementada permite registrar una `OwnershipAttestation` ligada
+al usuario autenticado, Workspace personal, Project, Source, versión exacta del
+texto aceptado, base declarada y momento. Solo admite una Source upload no
+archivada, `validating`, inactiva y con upload confirmado. Una attestation no se
+reutiliza para otra fuente, no demuestra por sí sola que el usuario posea los
+derechos, no transfiere derechos y no sustituye controles de acceso, validación
+técnica ni revisión o asesoría legal. El texto `ownership-v1` y las bases
+`owner` y `authorized_by_owner` son provisionales para Internal Alpha; su
+revisión legal, revocación y periodo de conservación permanecen pendientes
+antes de exposición pública.
 
 Como mínimo, un fetch server-side deberá:
 
@@ -419,8 +424,10 @@ exige `Content-Type` y `x-amz-meta-upload-intent-id` ligados a la firma. La
 confirmación usa `HEAD` solo sobre la key persistida y exige existencia, tamaño
 exacto, `Content-Type` normalizado y metadata vinculante; no acepta key, bucket ni
 URL del cliente. Esta metadata no demuestra MIME real, magic bytes, ausencia de
-malware ni autorización. El Source queda `validating`, inactivo y sin
-attestation; nunca `accepted`. La URL temporal
+malware ni autorización. La confirmación por sí sola deja el Source
+`validating`, inactivo y sin attestation; nunca `accepted`. La attestation puede
+registrarse después mediante su endpoint, pero tampoco cambia ese estado ni
+activa la Source. La URL temporal
 se entrega con `Cache-Control: no-store`, no se persiste ni se registra.
 La eliminación de intenciones expiradas y objetos incompletos sigue pendiente
 de una política de lifecycle; su expiración no demuestra que exista un objeto.
@@ -715,10 +722,10 @@ Estado real del repositorio al publicar esta versión:
 | --- | --- |
 | Security Foundation | `Approved as initial security baseline` |
 | Frontend productivo | `Not implemented` |
-| API de Internal Alpha | `Identity, Project create/list and private upload confirmation implemented` |
+| API de Internal Alpha | `Identity, Project create/list, Source listing, private upload confirmation and OwnershipAttestation foundation implemented` |
 | Supabase JWT verification | `Control implemented / locally verified` |
 | Session lifecycle | `Requirement pending detail` |
-| Autorización por Workspace | `Project and upload intent isolation implemented / locally verified` |
+| Autorización por Workspace | `Project, Source, upload intent and OwnershipAttestation isolation implemented / locally verified` |
 | PostgreSQL, Prisma y migrations | `Control implemented / locally verified` |
 | Worker y queue | `Not implemented` |
 | OpenAI para IA y transcripción | `Approved initial provider / Not implemented` |
@@ -730,7 +737,7 @@ Estado real del repositorio al publicar esta versión:
 `client/` continúa sin aplicación productiva y `server/` solo implementa la
 fundación de Internal Alpha y el límite de identidad descrito. La verificación
 local no certifica la seguridad del producto ni cubre lifecycle de sesión,
-revocación, tenancy o autorización.
+revocación ni todas las políticas futuras de tenancy y autorización.
 
 ## 22. Security gates
 

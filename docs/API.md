@@ -5,9 +5,9 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `05 — API Foundation` |
-| Versión | `0.4` |
+| Versión | `0.5` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — Project/Source listing and private upload confirmation implemented` |
+| Estado de implementación | `Partial — Project/Source listing, private upload confirmation and OwnershipAttestation foundation implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-15 |
 
@@ -18,7 +18,9 @@ comportamiento observable del procesamiento asíncrono.
 
 La fundación del servidor, `GET /health`, la frontera protegida de identidad y
 el provisioning persistido de `User` y `Workspace` personal, la creación y el
-listado de `Project`, el listado de `Source` por Project y la intención privada inicial de upload están implementados. El resto de rutas de dominio continúa
+listado de `Project`, el listado de `Source` por Project, la intención privada
+inicial de upload y el registro de `OwnershipAttestation` están implementados.
+El resto de rutas de dominio continúa
 en estado `Draft / Not implemented`; este documento no crea una API pública para
 terceros ni presenta el SaaS completo como construido.
 
@@ -453,7 +455,7 @@ archive.
 | `Implemented — private upload confirmation` | `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` | Required | Body ausente o `{}` | Source `validating` + upload completado | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType: "upload", uploadHandle }` + `Idempotency-Key` | Source | `201` |
 | `Implemented — workspace/project-scoped foundation` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
-| `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
+| `Implemented — validating upload attestation foundation` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/activate` | Required | `{}` | Project y Source | `200` |
 
 Source expone `id`, `projectId`, `sourceType`, `safeReference`, `state`,
@@ -522,9 +524,32 @@ Crear una fuente no inicia análisis ni consume uso. La attestation requiere:
 }
 ```
 
-`statementVersion` y `authorizationBasis` son campos públicos, pero sus valores
-definitivos requieren revisión legal y de producto. Una attestation registra
-una declaración del usuario; no constituye garantía legal.
+El endpoint deriva `userId` y `workspaceId` del principal autenticado y solo
+acepta un Project activo y una Source `upload` no archivada, en estado
+`validating`, inactiva y con su `UploadIntent.completedAt` persistido. No acepta
+campos de identidad o tenant en el body. Si la Source todavía no cumple estas
+condiciones devuelve `409 SOURCE_NOT_READY_FOR_ATTESTATION`.
+
+`statementVersion` debe ser exactamente `ownership-v1` y
+`authorizationBasis` admite `owner` o `authorized_by_owner`. El servidor liga
+esa versión al siguiente texto inmutable; el cliente no envía ni sustituye el
+texto:
+
+> Confirmo que soy titular de este contenido o que cuento con autorización suficiente del titular para cargarlo y permitir que ClipAI lo procese con el fin de generar transcripciones, análisis y recomendaciones de contenido. Soy responsable de respetar los derechos de terceros.
+
+La primera creación responde `201`, `Location` y solo expone `id`, `sourceId`,
+`statementVersion`, `authorizationBasis` y `attestedAt`. Un replay con la misma
+`Idempotency-Key` y la misma operación devuelve el mismo recurso con `201` y
+`Idempotency-Replayed: true`. Reutilizar la clave para otra operación devuelve
+`409 IDEMPOTENCY_CONFLICT`; intentar otra clave para la misma Source y versión
+devuelve `409 ATTESTATION_ALREADY_EXISTS`.
+
+Esta foundation registra únicamente la declaración. No valida ownership, no
+transfiere derechos y no constituye garantía ni asesoría legal. El texto y las
+bases son provisionales para Internal Alpha y requieren revisión legal y de
+producto antes de exposición pública. Crear la attestation no inspecciona
+bytes, MIME real, magic bytes o malware; no cambia `Source.state`, no activa la
+Source y no crea jobs, transcripciones, análisis ni consumo.
 
 Activar una fuente exige que pertenezca al proyecto y workspace, esté
 `accepted` y tenga una attestation válida. El proyecto mantiene como máximo un
@@ -1425,13 +1450,16 @@ backoff máximo y timeout de UX permanecen pendientes de medición.
 | --- | --- | --- |
 | `VALIDATION_ERROR` | `400` | Uno o más campos no cumplen el contrato. |
 | `INVALID_JSON` | `400` | El body no es JSON válido. |
+| `ATTESTATION_INPUT_INVALID` | `400` | Path, body o campos de attestation no cumplen el contrato exacto. |
 | `INVALID_CURSOR` | `400` | Cursor inválido, incompatible o expirado. |
 | `IDEMPOTENCY_KEY_REQUIRED` | `400` | Falta el header requerido. |
 | `IDEMPOTENCY_CONFLICT` | `409` | La clave ya representa otra intención. |
+| `ATTESTATION_ALREADY_EXISTS` | `409` | Ya existe una attestation para la misma Source y versión. |
 | `AUTHENTICATION_REQUIRED` | `401` | Sesión ausente, inválida o expirada. |
 | `FORBIDDEN` | `403` | Acción explícitamente prohibida sin revelar otros tenants. |
 | `RESOURCE_NOT_FOUND` | `404` | Recurso ausente o fuera del workspace. |
 | `INVALID_STATE` | `409` | El recurso no admite la transición solicitada. |
+| `SOURCE_NOT_READY_FOR_ATTESTATION` | `409` | La Source o su upload todavía no cumplen las precondiciones de attestation. |
 | `ANALYSIS_ALREADY_IN_PROGRESS` | `409` | El Project ya tiene un ProcessingJob de análisis no terminal. |
 | `PROJECT_HAS_ACTIVE_JOB` | `409` | El job del Project debe alcanzar un estado terminal antes del archive. |
 | `OWNERSHIP_ATTESTATION_REQUIRED` | `409` | Falta una attestation válida. |
@@ -1560,16 +1588,18 @@ Estado real del repositorio al publicar esta versión:
 | JWT identity verification | `Implemented and locally verified` |
 | Session lifecycle | `Not implemented` |
 | Express application y routes | `Partially implemented` |
-| PostgreSQL, Prisma schema y migrations | `Partially implemented — User, Workspace, Project, Source and UploadIntent` |
+| PostgreSQL, Prisma schema y migrations | `Partially implemented — User, Workspace, Project, Source, UploadIntent and OwnershipAttestation` |
 | ProcessingJob worker y queue integration | `Not implemented` |
 | Usage reservations y ledger | `Not implemented` |
 
 `client/` continúa sin aplicación. `server/` persiste `User`, `Workspace`,
-`Project`, `Source` y `UploadIntent`; crea y lista Projects, emite targets
-temporales y confirma metadata de objetos con aislamiento de workspace, pero no
-inspecciona bytes, procesa videos ni cobra uso. Las 127 pruebas unitarias y las 61 pruebas
-PostgreSQL pasan localmente. La ejecución remota del CI para esta ampliación
-permanece pendiente hasta publicar los cambios.
+`Project`, `Source`, `UploadIntent` y `OwnershipAttestation`; crea y lista
+Projects, lista Sources, emite targets temporales, confirma metadata de objetos
+y registra la declaración de autorización con aislamiento de workspace, pero no
+inspecciona bytes, acepta o activa Sources, procesa videos ni cobra uso. Las 202
+pruebas unitarias y las 93 pruebas PostgreSQL pasan localmente. La ejecución
+remota del CI para esta ampliación permanece pendiente hasta publicar los
+cambios.
 
 ## 20. Open API decisions
 
@@ -1581,8 +1611,9 @@ ejemplos:
 2. Contrato de finalización de upload, duración, idiomas, expiración definitiva
    de handles y verificación real de MP4, MOV, MP3 y WAV. La intención inicial
    usa provisionalmente 250 MiB y diez minutos.
-3. Texto legal, `statementVersion`, valores de `authorizationBasis`, revocación
-   y evidencia necesaria para OwnershipAttestation.
+3. Revisión legal y de producto del texto provisional `ownership-v1`, valores
+   de `authorizationBasis`, revocación, conservación y evidencia necesaria para
+   OwnershipAttestation antes de exposición pública.
 4. Longitudes máximas, límites exactos de body y reglas de normalización de los
    campos públicos que aún no están implementados.
 5. Retención y almacenamiento de idempotency keys y fingerprints.
