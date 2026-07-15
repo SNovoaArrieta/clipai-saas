@@ -19,7 +19,7 @@ function parseJSON(raw) {
   return JSON.parse(match[0]);
 }
 
-// Calls Claude with web_search, handles the full agentic tool-use loop
+
 async function callWithWebSearch(system, userMsg) {
   let messages = [{ role: "user", content: userMsg }];
 
