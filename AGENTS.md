@@ -11,7 +11,7 @@ the time required to review long videos manually.
 
 ## Current phase
 
-We are currently working on Phase 0: Foundation.
+We are currently working on Phase 1: Internal Alpha.
 
 Do not implement the full SaaS until the product documentation,
 architecture, repository structure and technical standards are approved.

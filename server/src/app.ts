@@ -9,12 +9,14 @@ import type { IdentityProvisioner } from './provisioning/identity-provisioner.js
 import { createApiRouter } from './routes/index.js';
 import { AppError } from './shared/errors/app-error.js';
 import type { ObjectStorage } from './storage/object-storage.js';
+import type { SourceService } from './sources/source-service.js';
 import type { UploadIntentService } from './uploads/upload-intent-service.js';
 
 export interface AppDependencies {
   readonly identityVerifier?: IdentityVerifier;
   readonly identityProvisioner?: IdentityProvisioner;
   readonly projectService?: ProjectService;
+  readonly sourceService?: SourceService;
   readonly uploadIntentService?: UploadIntentService;
   readonly objectStorage?: ObjectStorage;
 }

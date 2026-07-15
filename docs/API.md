@@ -5,11 +5,11 @@
 | Campo | Valor |
 | --- | --- |
 | Documento | `05 — API Foundation` |
-| Versión | `0.3` |
+| Versión | `0.4` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — Project create/list and private upload confirmation implemented` |
+| Estado de implementación | `Partial — Project/Source listing and private upload confirmation implemented` |
 | Fase | Fase 1 — Internal Alpha |
-| Última actualización | 2026-07-13 |
+| Última actualización | 2026-07-15 |
 
 Este documento define el diseño inicial de la API HTTP que el frontend de
 ClipAI podrá consumir cuando se autorice la construcción del MVP. Establece
@@ -18,7 +18,7 @@ comportamiento observable del procesamiento asíncrono.
 
 La fundación del servidor, `GET /health`, la frontera protegida de identidad y
 el provisioning persistido de `User` y `Workspace` personal, la creación y el
-listado de `Project`, y la intención privada inicial de upload están implementados. El resto de rutas de dominio continúa
+listado de `Project`, el listado de `Source` por Project y la intención privada inicial de upload están implementados. El resto de rutas de dominio continúa
 en estado `Draft / Not implemented`; este documento no crea una API pública para
 terceros ni presenta el SaaS completo como construido.
 
@@ -452,7 +452,7 @@ archive.
 | `Implemented — private upload foundation` | `POST /api/v1/projects/:projectId/upload-intents` | Required | `{ filename, contentType, sizeBytes }` + `Idempotency-Key` | Source `submitted` + target PUT temporal | `201` |
 | `Implemented — private upload confirmation` | `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` | Required | Body ausente o `{}` | Source `validating` + upload completado | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType: "upload", uploadHandle }` + `Idempotency-Key` | Source | `201` |
-| `Draft / Not implemented` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
+| `Implemented — workspace/project-scoped foundation` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources/:sourceId/activate` | Required | `{}` | Project y Source | `200` |
 
@@ -467,6 +467,29 @@ estados conceptuales son `submitted`, `validating`, `accepted` y `rejected`.
 Source puede permanecer `accepted` mientras su ProcessingJob cambia a
 `awaiting_input` porque se necesita un transcript temporizado u otra entrada
 alternativa.
+
+`GET /api/v1/projects/:projectId/sources` deriva el Workspace del principal
+autenticado y comprueba en PostgreSQL que el Project pertenezca a ese Workspace.
+Un Project inexistente o perteneciente a otro Workspace devuelve el mismo
+`404 PROJECT_NOT_FOUND`; un Project archivado conserva el contrato existente
+`409 PROJECT_ARCHIVED`. La consulta excluye Sources archivadas y se ordena por
+`createdAt DESC, id DESC`, sin offset. `limit` tiene default `20`, mínimo `1` y
+máximo `100`. El cursor opaco queda ligado al Workspace interno, Project,
+`createdAt` e `id`; se valida antes de consultar y un cursor malformado, con
+checksum incoherente o emitido para otro scope devuelve
+`400 SOURCE_QUERY_INVALID`. El checksum SHA-256 no usa una clave y no constituye
+una firma criptográfica: detecta corrupción o mutaciones que no lo recalculen,
+pero la autorización depende del binding de scope y de los filtros tenant-safe
+en PostgreSQL. La respuesta usa
+`meta.page.limit`, `nextCursor` y `hasMore`; en la última página devuelve
+`nextCursor: null` y `hasMore: false`.
+
+Cada elemento listado expone exclusivamente `id`, `projectId`, `sourceType`,
+`safeReference`, `state`, `isActive`, `durationMs`, `createdAt` y `updatedAt`.
+`durationMs` se convierte desde `BigInt` solo cuando puede representarse como un
+entero JSON seguro. El endpoint no devuelve `workspaceId`, object keys, bucket,
+signed URLs, handles de upload, `UploadIntent`, nombres internos, tamaños, MIME,
+ETag, metadata de provider, idempotencia ni referencias internas de storage.
 
 La ruta de upload intent crea atómicamente el `Source` en `submitted` y su
 intención durable, pero no confirma que el objeto exista. Acepta declaraciones

@@ -5,6 +5,8 @@ import { SupabaseIdentityVerifier } from './identity/supabase-identity-verifier.
 import { PrismaProjectService } from './projects/prisma-project-service.js';
 import { PrismaIdentityProvisioner } from './provisioning/prisma-identity-provisioner.js';
 import { S3ObjectStorage } from './storage/s3-object-storage.js';
+import { PrismaSourceRepository } from './sources/prisma-source-repository.js';
+import { DefaultSourceService } from './sources/source-service.js';
 import { PrismaUploadIntentService } from './uploads/prisma-upload-intent-service.js';
 
 const env = loadEnv();
@@ -31,6 +33,12 @@ const uploadIntentService =
   databaseClient === undefined
     ? undefined
     : new PrismaUploadIntentService(databaseClient.prisma);
+const sourceService =
+  databaseClient === undefined
+    ? undefined
+    : new DefaultSourceService(
+        new PrismaSourceRepository(databaseClient.prisma),
+      );
 const objectStorage =
   env.storageMode === 's3'
     ? new S3ObjectStorage({
@@ -46,6 +54,7 @@ const app = createApp({
   ...(identityVerifier === undefined ? {} : { identityVerifier }),
   ...(identityProvisioner === undefined ? {} : { identityProvisioner }),
   ...(projectService === undefined ? {} : { projectService }),
+  ...(sourceService === undefined ? {} : { sourceService }),
   ...(uploadIntentService === undefined ? {} : { uploadIntentService }),
   ...(objectStorage === undefined ? {} : { objectStorage }),
 });

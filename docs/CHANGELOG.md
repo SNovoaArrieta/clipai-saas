@@ -4,6 +4,27 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-15 — Workspace-scoped Source listing
+
+### Added
+
+- `GET /api/v1/projects/:projectId/sources` autenticado, con validación estricta,
+  envelope de colección existente y campos públicos mínimos de Source.
+- Paginación por cursor opaco ligado a Workspace, Project, `createdAt` e `id`,
+  orden estable `createdAt DESC, id DESC` y límites entre 1 y 100.
+- Consulta PostgreSQL tenant-safe que excluye Sources archivadas y no distingue
+  Projects inexistentes de Projects pertenecientes a otro Workspace.
+- Pruebas unitarias HTTP/use case y pruebas HTTP reales sobre PostgreSQL para
+  validación, orden, desempate, paginación, cursores, serialización y aislamiento.
+
+### Scope and validation status
+
+- Se reutiliza el schema y el índice existente de Source; no se añadió migración.
+- No se añadieron attestations, activación, ProcessingJobs, transcripción,
+  análisis, frontend, procesamiento de archivos ni integraciones de IA.
+- La capacidad genérica `POST /sources` permanece sin implementar; el upload
+  intent continúa siendo quien crea la Source.
+
 ## 2026-07-13 — Uploaded object metadata confirmation
 
 ### Added
