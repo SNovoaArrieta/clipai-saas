@@ -2,6 +2,34 @@
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "noryven-cto",
   "share": "disabled",
+
+  "provider": {
+    "noryven-gateway": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NORYVEN AI Gateway",
+
+      "options": {
+        "baseURL": "http://127.0.0.1:20128/v1",
+        "apiKey": "{env:OMNIROUTE_API_KEY}"
+      },
+
+      "models": {
+        "noryven-fast": {
+          "name": "NORYVEN Fast"
+        },
+        "noryven-code": {
+          "name": "NORYVEN Code"
+        },
+        "noryven-deep": {
+          "name": "NORYVEN Deep"
+        },
+        "noryven-review": {
+          "name": "NORYVEN Review"
+        }
+      }
+    }
+  },
+
   "agent": {
     "build": {
       "disable": true
@@ -19,25 +47,30 @@
       "disable": true
     }
   },
+
   "permission": {
     "*": "deny",
+
     "read": {
       "*": "allow",
       "*.env": "deny",
       "*.env.*": "deny",
       "*.env.example": "allow"
     },
+
     "glob": "allow",
     "grep": "allow",
     "list": "allow",
     "lsp": "allow",
     "question": "allow",
+
     "bash": "deny",
     "edit": "deny",
     "task": "deny",
     "webfetch": "deny",
     "websearch": "deny",
     "skill": "deny",
-    "external_directory": "deny"
+    "external_directory": "deny",
+    "doom_loop": "ask"
   }
 }
