@@ -1,0 +1,24 @@
+# Dependencies and generated outputs
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+**/.cache/
+*.tsbuildinfo
+.eslintcache
+package-lock.json
+
+# Local environment files
+**/.env*
+
+# Immutable reference
+legacy/
+
+# Governance and approved foundation documents are preserved as reviewed.
+AGENTS.md
+docs/API.md
+docs/ARCHITECTURE.md
+docs/DATABASE.md
+docs/DECISIONS.md
+docs/PRODUCT.md
+docs/SECURITY.md
