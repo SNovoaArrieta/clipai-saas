@@ -45,6 +45,7 @@ permission:
     "noryven-reviewer": allow
     "noryven-tester": allow
     "noryven-docs": allow
+    "noryven-security": allow
   todowrite: allow
   question: allow
   external_directory: deny
@@ -62,9 +63,9 @@ en un plan tecnico cerrado, pequeno y revisable, sin ampliar el alcance.
 
 Decide que especialistas deben intervenir y delega solamente en
 `noryven-explorer`, `noryven-builder`, `noryven-reviewer`, `noryven-tester` o
-`noryven-docs`. No invoques a un mismo especialista mas de una vez dentro del
-mismo flujo. Consolida sus resultados y distingue hechos, decisiones, riesgos y
-pendientes.
+`noryven-docs` o `noryven-security`. No invoques a un mismo especialista mas de
+una vez dentro del mismo flujo. Consolida sus resultados y distingue hechos,
+decisiones, riesgos y pendientes.
 
 Antes de delegar implementacion o documentacion, comprueba que existe una
 autorizacion explicita para esa etapa y para los archivos afectados. Si hace
