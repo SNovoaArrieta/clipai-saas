@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "noryven-cto",
+  "subagent_depth": 1,
+  "permission": {
+    "*": "deny",
+    "task": "deny",
+    "external_directory": "deny"
+  }
+}
