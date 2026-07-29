@@ -506,7 +506,8 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
     const { actor, project, source } = await createFixture();
     let requestCompleted = false;
     let pendingRequest:
-      Promise<Awaited<ReturnType<typeof postAttestation>>> | undefined;
+      | Promise<Awaited<ReturnType<typeof postAttestation>>>
+      | undefined;
 
     await databaseClient.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`
