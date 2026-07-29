@@ -2,42 +2,42 @@
 description: Implementa cambios previamente autorizados dentro de un alcance cerrado.
 mode: subagent
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.env.example': allow
+    '**/.env.example': allow
   glob: allow
   grep: allow
   list: allow
   edit:
-    "*": ask
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "**/migrations/**": deny
-    "**/migration/**": deny
-    "docs/**": deny
-    "README.md": deny
-    "AGENTS.md": deny
-    ".opencode/**": deny
-    "opencode.jsonc": deny
+    '*': ask
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    '**/migrations/**': deny
+    '**/migration/**': deny
+    'docs/**': deny
+    'README.md': deny
+    'AGENTS.md': deny
+    '.opencode/**': deny
+    'opencode.jsonc': deny
   bash:
-    "*": deny
-    "git branch --show-current": allow
-    "git status --short": allow
-    "git diff": allow
-    "git diff --cached": allow
-    "git diff --stat": allow
-    "git diff --name-status": allow
-    "git diff --check": allow
+    '*': deny
+    'git branch --show-current': allow
+    'git status --short': allow
+    'git diff': allow
+    'git diff --cached': allow
+    'git diff --stat': allow
+    'git diff --name-status': allow
+    'git diff --check': allow
   task: deny
   todowrite: allow
   question: allow

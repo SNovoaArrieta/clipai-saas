@@ -2,30 +2,30 @@
 description: Revisa cambios y archivos no rastreados sin corregirlos.
 mode: subagent
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.env.example': allow
+    '**/.env.example': allow
   glob: allow
   grep: allow
   list: allow
   bash:
-    "*": deny
-    "git branch --show-current": allow
-    "git status --short": allow
-    "git diff": allow
-    "git diff --cached": allow
-    "git diff --stat": allow
-    "git diff --name-status": allow
-    "git diff --check": allow
-    "git log -3 --oneline": allow
+    '*': deny
+    'git branch --show-current': allow
+    'git status --short': allow
+    'git diff': allow
+    'git diff --cached': allow
+    'git diff --stat': allow
+    'git diff --name-status': allow
+    'git diff --check': allow
+    'git log -3 --oneline': allow
   task: deny
   todowrite: deny
   question: deny

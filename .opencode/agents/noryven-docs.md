@@ -2,34 +2,34 @@
 description: Actualiza documentacion expresamente autorizada sin modificar codigo.
 mode: subagent
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.env.example': allow
+    '**/.env.example': allow
   glob: allow
   grep: allow
   list: allow
   edit:
-    "*": deny
-    "README.md": ask
-    "AGENTS.md": ask
-    "docs/**": ask
-    ".opencode/**": deny
+    '*': deny
+    'README.md': ask
+    'AGENTS.md': ask
+    'docs/**': ask
+    '.opencode/**': deny
   bash:
-    "*": deny
-    "git branch --show-current": allow
-    "git status --short": allow
-    "git diff": allow
-    "git diff --stat": allow
-    "git diff --name-status": allow
-    "git diff --check": allow
+    '*': deny
+    'git branch --show-current': allow
+    'git status --short': allow
+    'git diff': allow
+    'git diff --stat': allow
+    'git diff --name-status': allow
+    'git diff --check': allow
   task: deny
   todowrite: allow
   question: allow

@@ -2,43 +2,43 @@
 description: Inspecciona el repositorio en modo estrictamente de solo lectura.
 mode: subagent
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.env.example': allow
+    '**/.env.example': allow
   glob: allow
   grep: allow
   list: allow
   bash:
-    "*": deny
-    "pwd": allow
-    "node --version": allow
-    "npm --version": allow
-    "opencode --version": allow
-    "git branch --show-current": allow
-    "git branch --all": allow
-    "git branch --list": allow
-    "git status --short": allow
-    "git diff": allow
-    "git diff --cached": allow
-    "git diff --stat": allow
-    "git diff --name-status": allow
-    "git diff --check": allow
-    "git log --oneline": allow
-    "git log -3 --oneline": allow
-    "git log -5 --oneline": allow
-    "git log -10 --oneline": allow
-    "git rev-parse HEAD": allow
-    "git rev-parse --show-toplevel": allow
-    "git worktree list": allow
-    "git remote -v": allow
+    '*': deny
+    'pwd': allow
+    'node --version': allow
+    'npm --version': allow
+    'opencode --version': allow
+    'git branch --show-current': allow
+    'git branch --all': allow
+    'git branch --list': allow
+    'git status --short': allow
+    'git diff': allow
+    'git diff --cached': allow
+    'git diff --stat': allow
+    'git diff --name-status': allow
+    'git diff --check': allow
+    'git log --oneline': allow
+    'git log -3 --oneline': allow
+    'git log -5 --oneline': allow
+    'git log -10 --oneline': allow
+    'git rev-parse HEAD': allow
+    'git rev-parse --show-toplevel': allow
+    'git worktree list': allow
+    'git remote -v': allow
   task: deny
   todowrite: deny
   question: deny

@@ -2,39 +2,39 @@
 description: Ejecuta validaciones autorizadas y registra sus resultados exactos.
 mode: subagent
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.env.example': allow
+    '**/.env.example': allow
   glob: allow
   grep: allow
   list: allow
   bash:
-    "*": deny
-    "node --version": allow
-    "npm --version": allow
-    "npm run format:check": allow
-    "npm run lint": allow
-    "npm run typecheck": allow
-    "npm run test": allow
-    "npm test": allow
-    "npm run build": allow
-    "npm run check": allow
-    "git branch --show-current": allow
-    "git status --short": allow
-    "git diff": allow
-    "git diff --stat": allow
-    "git diff --name-status": allow
-    "git diff --check": allow
-    "git check-ignore *": allow
-    "rm *": ask
+    '*': deny
+    'node --version': allow
+    'npm --version': allow
+    'npm run format:check': allow
+    'npm run lint': allow
+    'npm run typecheck': allow
+    'npm run test': allow
+    'npm test': allow
+    'npm run build': allow
+    'npm run check': allow
+    'git branch --show-current': allow
+    'git status --short': allow
+    'git diff': allow
+    'git diff --stat': allow
+    'git diff --name-status': allow
+    'git diff --check': allow
+    'git check-ignore *': allow
+    'rm *': ask
   task: deny
   todowrite: allow
   question: allow

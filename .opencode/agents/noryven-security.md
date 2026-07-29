@@ -2,40 +2,40 @@
 description: Audita la seguridad de NORYVEN en modo estrictamente de solo lectura.
 mode: subagent
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    "*.env": deny
-    ".env.*": deny
-    "*.env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".npmrc": deny
-    "**/.npmrc": deny
-    ".pypirc": deny
-    "**/.pypirc": deny
-    "credentials.json": deny
-    "**/credentials.json": deny
-    "*.pem": deny
-    "**/*.pem": deny
-    "*.key": deny
-    "**/*.key": deny
-    "id_rsa": deny
-    "**/id_rsa": deny
-    "id_rsa.pub": deny
-    "**/id_rsa.pub": deny
-    ".git-credentials": deny
-    "**/.git-credentials": deny
-    "*.p12": deny
-    "**/*.p12": deny
-    "*.pfx": deny
-    "**/*.pfx": deny
-    ".env.example": allow
-    "*.env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '*.env': deny
+    '.env.*': deny
+    '*.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.npmrc': deny
+    '**/.npmrc': deny
+    '.pypirc': deny
+    '**/.pypirc': deny
+    'credentials.json': deny
+    '**/credentials.json': deny
+    '*.pem': deny
+    '**/*.pem': deny
+    '*.key': deny
+    '**/*.key': deny
+    'id_rsa': deny
+    '**/id_rsa': deny
+    'id_rsa.pub': deny
+    '**/id_rsa.pub': deny
+    '.git-credentials': deny
+    '**/.git-credentials': deny
+    '*.p12': deny
+    '**/*.p12': deny
+    '*.pfx': deny
+    '**/*.pfx': deny
+    '.env.example': allow
+    '*.env.example': allow
+    '**/.env.example': allow
   glob: allow
   list: allow
   lsp: allow

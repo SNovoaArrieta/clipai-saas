@@ -2,50 +2,50 @@
 description: Coordina el trabajo tecnico autorizado de ClipAI y delega una vez por especialista.
 mode: primary
 permission:
-  "*": deny
+  '*': deny
   read:
-    "*": allow
-    ".env": deny
-    ".env.*": deny
-    "**/.env": deny
-    "**/.env.*": deny
-    "auth.json": deny
-    "**/auth.json": deny
-    ".env.example": allow
-    "**/.env.example": allow
+    '*': allow
+    '.env': deny
+    '.env.*': deny
+    '**/.env': deny
+    '**/.env.*': deny
+    'auth.json': deny
+    '**/auth.json': deny
+    '.env.example': allow
+    '**/.env.example': allow
   glob: allow
   grep: allow
   list: allow
   bash:
-    "*": deny
-    "pwd": allow
-    "node --version": allow
-    "npm --version": allow
-    "opencode --version": allow
-    "git branch --show-current": allow
-    "git branch --all": allow
-    "git branch --list": allow
-    "git status --short": allow
-    "git diff": allow
-    "git diff --cached": allow
-    "git diff --stat": allow
-    "git diff --name-status": allow
-    "git diff --check": allow
-    "git log --oneline": allow
-    "git log -3 --oneline": allow
-    "git log -5 --oneline": allow
-    "git log -10 --oneline": allow
-    "git rev-parse HEAD": allow
-    "git rev-parse --show-toplevel": allow
-    "git worktree list": allow
+    '*': deny
+    'pwd': allow
+    'node --version': allow
+    'npm --version': allow
+    'opencode --version': allow
+    'git branch --show-current': allow
+    'git branch --all': allow
+    'git branch --list': allow
+    'git status --short': allow
+    'git diff': allow
+    'git diff --cached': allow
+    'git diff --stat': allow
+    'git diff --name-status': allow
+    'git diff --check': allow
+    'git log --oneline': allow
+    'git log -3 --oneline': allow
+    'git log -5 --oneline': allow
+    'git log -10 --oneline': allow
+    'git rev-parse HEAD': allow
+    'git rev-parse --show-toplevel': allow
+    'git worktree list': allow
   task:
-    "*": deny
-    "noryven-explorer": allow
-    "noryven-builder": allow
-    "noryven-reviewer": allow
-    "noryven-tester": allow
-    "noryven-docs": allow
-    "noryven-security": allow
+    '*': deny
+    'noryven-explorer': allow
+    'noryven-builder': allow
+    'noryven-reviewer': allow
+    'noryven-tester': allow
+    'noryven-docs': allow
+    'noryven-security': allow
   todowrite: allow
   question: allow
   external_directory: deny
