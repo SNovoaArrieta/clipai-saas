@@ -9,6 +9,8 @@ permission:
     '.env.*': deny
     '**/.env': deny
     '**/.env.*': deny
+    '*.env': deny
+    '**/*.env': deny
     'auth.json': deny
     '**/auth.json': deny
     '.env.example': allow
