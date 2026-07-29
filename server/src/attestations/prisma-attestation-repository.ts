@@ -136,8 +136,7 @@ export class PrismaAttestationRepository implements AttestationRepository {
         if (source === undefined) {
           throw new AttestationSourceNotFoundError();
         }
-        const uploadIntents =
-          await transaction.$queryRaw<LockedUploadIntent[]>`
+        const uploadIntents = await transaction.$queryRaw<LockedUploadIntent[]>`
             SELECT "completedAt"
             FROM "UploadIntent"
             WHERE "sourceId" = ${input.sourceId}::uuid

@@ -105,8 +105,7 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
           originalFilename: 'synthetic.mp4',
           expiresAt: new Date(Date.now() + 60_000),
           observedSizeBytes: options.completed === false ? null : 1024n,
-          observedContentType:
-            options.completed === false ? null : 'video/mp4',
+          observedContentType: options.completed === false ? null : 'video/mp4',
           completedAt: options.completed === false ? null : new Date(),
           createIdempotencyKey: `upload:${randomUUID()}`,
         },
@@ -130,9 +129,7 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
       attestationService,
     });
     return request(app)
-      .post(
-        `/api/v1/projects/${projectId}/sources/${sourceId}/attestations`,
-      )
+      .post(`/api/v1/projects/${projectId}/sources/${sourceId}/attestations`)
       .set('Authorization', `Bearer ${authSubject}`)
       .set('Idempotency-Key', options.key ?? `attestation:${randomUUID()}`)
       .send({
@@ -195,9 +192,11 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
 
   it('durably records the authenticated actor and tenant-safe Source without changing domain state', async () => {
     const { actor, project, source } = await createFixture();
-    const projectBefore = await databaseClient.prisma.project.findUniqueOrThrow({
-      where: { id: project.project.id },
-    });
+    const projectBefore = await databaseClient.prisma.project.findUniqueOrThrow(
+      {
+        where: { id: project.project.id },
+      },
+    );
     const response = await postAttestation(
       actor.authSubject,
       project.project.id,
@@ -268,7 +267,9 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
       let candidateSourceId = randomUUID();
       if (scenario === 'cross-workspace') {
         const second = await createPrincipal();
-        const hiddenProject = await createProject(second.principal.workspace.id);
+        const hiddenProject = await createProject(
+          second.principal.workspace.id,
+        );
         candidateSourceId = (
           await createSource(
             second.principal.workspace.id,
@@ -344,9 +345,7 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
         source.sourceId,
       );
       expect(response.status).toBe(409);
-      expect(response.body.error.code).toBe(
-        'SOURCE_NOT_READY_FOR_ATTESTATION',
-      );
+      expect(response.body.error.code).toBe('SOURCE_NOT_READY_FOR_ATTESTATION');
     },
   );
 
@@ -414,10 +413,7 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
         'authorized_by_owner';
       if (scenario === 'different-source') {
         targetSourceId = (
-          await createSource(
-            actor.principal.workspace.id,
-            project.project.id,
-          )
+          await createSource(actor.principal.workspace.id, project.project.id)
         ).sourceId;
         authorizationBasis = 'owner';
       }
@@ -490,11 +486,7 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
     const { actor, project, source } = await createFixture();
     const responses = await Promise.all(
       Array.from({ length: 8 }, () =>
-        postAttestation(
-          actor.authSubject,
-          project.project.id,
-          source.sourceId,
-        ),
+        postAttestation(actor.authSubject, project.project.id, source.sourceId),
       ),
     );
     expect(responses.filter(({ status }) => status === 201)).toHaveLength(1);
@@ -514,8 +506,7 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
     const { actor, project, source } = await createFixture();
     let requestCompleted = false;
     let pendingRequest:
-      | Promise<Awaited<ReturnType<typeof postAttestation>>>
-      | undefined;
+      Promise<Awaited<ReturnType<typeof postAttestation>>> | undefined;
 
     await databaseClient.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`
