@@ -11,9 +11,7 @@ const authorizationBases = new Set<AuthorizationBasis>([
   'authorized_by_owner',
 ]);
 
-export function assertNoDuplicateAttestationJsonFields(
-  rawBody: Buffer,
-): void {
+export function assertNoDuplicateAttestationJsonFields(rawBody: Buffer): void {
   const json = rawBody.toString('utf8');
   const keys = new Set<string>();
   let depth = 0;
