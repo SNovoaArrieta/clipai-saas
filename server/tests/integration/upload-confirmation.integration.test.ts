@@ -59,6 +59,9 @@ class ControlledObjectStorage implements ObjectStorage {
   public readonly targets = new Map<string, CreateUploadTargetInput>();
   public inspectCount = 0;
   public missing = false;
+  public beforeInspect:
+    | ((sequence: number) => Promise<void>)
+    | undefined;
   public metadataOverride:
     | Partial<UploadedObjectMetadata>
     | ((
@@ -84,6 +87,7 @@ class ControlledObjectStorage implements ObjectStorage {
     input: InspectUploadedObjectInput,
   ): Promise<UploadedObjectMetadata> {
     this.inspectCount += 1;
+    await this.beforeInspect?.(this.inspectCount);
     if (this.missing) {
       throw new ObjectStorageNotFoundError();
     }
@@ -314,7 +318,7 @@ describeWithPostgres('PostgreSQL uploaded object confirmation', () => {
     expect(storage.inspectCount).toBe(1);
   });
 
-  it('7. replays without another HEAD, duplicate, or changed IDs', async () => {
+  it('7. replays active Projects and rejects archived completed replays without another HEAD', async () => {
     const fixture = await createFixture();
     const first = await confirm(fixture);
     storage.metadataOverride = { sizeBytes: 8_192 };
@@ -324,28 +328,102 @@ describeWithPostgres('PostgreSQL uploaded object confirmation', () => {
     expect(replay.upload).toEqual(first.upload);
     expect(storage.inspectCount).toBe(1);
     await expect(databaseClient.prisma.uploadIntent.count()).resolves.toBe(1);
+
+    const [intentBeforeArchive, sourceBeforeArchive] = await Promise.all([
+      databaseClient.prisma.uploadIntent.findUniqueOrThrow({
+        where: { id: fixture.created.upload.handle },
+      }),
+      databaseClient.prisma.source.findUniqueOrThrow({
+        where: { id: fixture.created.source.id },
+      }),
+    ]);
+    await databaseClient.prisma.project.update({
+      where: { id: fixture.project.id },
+      data: { state: 'archived', archivedAt: new Date() },
+    });
+
+    await expect(confirm(fixture)).rejects.toBeInstanceOf(
+      UploadProjectArchivedError,
+    );
+    expect(storage.inspectCount).toBe(1);
+    await expect(
+      databaseClient.prisma.uploadIntent.findUniqueOrThrow({
+        where: { id: fixture.created.upload.handle },
+      }),
+    ).resolves.toEqual(intentBeforeArchive);
+    await expect(
+      databaseClient.prisma.source.findUniqueOrThrow({
+        where: { id: fixture.created.source.id },
+      }),
+    ).resolves.toEqual(sourceBeforeArchive);
   });
 
   it('8. makes concurrent confirmations idempotent with coherent metadata', async () => {
     const fixture = await createFixture();
-    storage.metadataOverride = (_target, sequence) => ({
-      etag: `"observation-${sequence}"`,
+    let releaseFirstInspection: (() => void) | undefined;
+    const firstInspectionReached = new Promise<void>((resolve) => {
+      storage.beforeInspect = async (sequence) => {
+        if (sequence !== 1) {
+          return;
+        }
+
+        resolve();
+        await new Promise<void>((release) => {
+          releaseFirstInspection = release;
+        });
+      };
     });
-    const results = await Promise.all(
-      Array.from({ length: 8 }, () => confirm(fixture)),
-    );
-    expect(
-      new Set(results.map((result) => result.upload.completedAt)).size,
-    ).toBe(1);
+
+    const first = confirm(fixture);
+    await firstInspectionReached;
+    const concurrent = Array.from({ length: 7 }, () => confirm(fixture));
+    expect(storage.inspectCount).toBe(1);
+    if (releaseFirstInspection === undefined) {
+      throw new Error('The first object inspection was not blocked.');
+    }
+    releaseFirstInspection();
+    const results = await Promise.all([first, ...concurrent]);
+
+    expect(results.filter((result) => !result.replayed)).toHaveLength(1);
+    expect(results.filter((result) => result.replayed)).toHaveLength(7);
+    expect(storage.inspectCount).toBe(1);
     expect(new Set(results.map((result) => result.source.id))).toEqual(
       new Set([fixture.created.source.id]),
     );
+    expect(new Set(results.map((result) => result.upload.completedAt)).size).toBe(
+      1,
+    );
+    expect(new Set(results.map((result) => result.upload.sizeBytes))).toEqual(
+      new Set([4_096]),
+    );
+    expect(new Set(results.map((result) => result.upload.contentType))).toEqual(
+      new Set(['video/mp4']),
+    );
+    expect(results.map((result) => result.upload)).toEqual(
+      Array.from({ length: 8 }, () => results[0]?.upload),
+    );
+
     const stored = await databaseClient.prisma.uploadIntent.findUniqueOrThrow({
       where: { id: fixture.created.upload.handle },
-      select: { storageEtag: true, completedAt: true },
+      select: {
+        observedSizeBytes: true,
+        observedContentType: true,
+        storageEtag: true,
+        completedAt: true,
+      },
     });
-    expect(stored.storageEtag).toMatch(/^"observation-\d+"$/);
-    expect(stored.completedAt).not.toBeNull();
+    expect(stored.observedSizeBytes).toBe(4_096n);
+    expect(stored.observedContentType).toBe('video/mp4');
+    expect(stored.storageEtag).toBe('"opaque-synthetic-etag"');
+    expect(stored.completedAt?.toISOString()).toBe(
+      results[0]?.upload.completedAt,
+    );
+    await expect(
+      databaseClient.prisma.source.findUniqueOrThrow({
+        where: { id: fixture.created.source.id },
+        select: { state: true },
+      }),
+    ).resolves.toEqual({ state: 'validating' });
   });
 
   it('9. missing object does not modify either row', async () => {
