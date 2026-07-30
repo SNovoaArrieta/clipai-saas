@@ -33,6 +33,9 @@ export function createApiRouter(dependencies: AppDependencies) {
       dependencies.identityVerifier,
       dependencies.identityProvisioner,
       dependencies.sourceService,
+      dependencies.sourceValidationService,
+      dependencies.objectStorage,
+      dependencies.mediaInspector,
     ),
   );
   apiRouter.use(

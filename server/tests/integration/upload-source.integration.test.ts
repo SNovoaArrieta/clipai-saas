@@ -84,6 +84,10 @@ class SyntheticObjectStorage implements ObjectStorage {
     void input;
     throw new Error('Unexpected object inspection.');
   }
+
+  public async readConfirmedObject(): Promise<never> {
+    throw new Error('Unexpected confirmed object read.');
+  }
 }
 
 const describeWithPostgres = hasTestDatabase ? describe : describe.skip;
@@ -198,6 +202,9 @@ describeWithPostgres('PostgreSQL private upload Source foundation', () => {
         throw new ObjectStorageUnavailableError();
       },
       inspectUploadedObject: async () => {
+        throw new ObjectStorageUnavailableError();
+      },
+      readConfirmedObject: async () => {
         throw new ObjectStorageUnavailableError();
       },
     };

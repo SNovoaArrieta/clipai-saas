@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "project": "BtbN/FFmpeg-Builds",
+    "projectUrl": "https://github.com/BtbN/FFmpeg-Builds",
+    "linkedBy": "https://ffmpeg.org/download.html",
+    "releaseTag": "autobuild-2026-06-30-13-34",
+    "releaseUrl": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-06-30-13-34",
+    "buildRepositoryCommit": "7a83528ea3431e9eca982a712bc3a7cd0789d5d0",
+    "ffmpegBuild": "N-125365-g9a01c1cb6a",
+    "publishedAt": "2026-06-30T13:35:42Z",
+    "license": {
+      "ffmpeg": "LGPL-2.1-or-later",
+      "buildScripts": "MIT",
+      "variant": "lgpl",
+      "notice": "The LGPL build excludes GPL-only dependencies. This manifest does not replace review of bundled dependency licenses or redistribution obligations."
+    }
+  },
+  "artifacts": {
+    "linux-x64": {
+      "filename": "ffmpeg-N-125365-g9a01c1cb6a-linux64-lgpl.tar.xz",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-30-13-34/ffmpeg-N-125365-g9a01c1cb6a-linux64-lgpl.tar.xz",
+      "sha256": "5a52f6d396da47ba48164c85591e11078dcb3cd8fadde7d79956dcccb3d3868a",
+      "sizeBytes": 111951692
+    },
+    "win32-x64": {
+      "filename": "ffmpeg-N-125365-g9a01c1cb6a-win64-lgpl.zip",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-30-13-34/ffmpeg-N-125365-g9a01c1cb6a-win64-lgpl.zip",
+      "sha256": "75cb786fa14299eb1c1cacc2542a15c8da690e551ab41858383dc425c605b8ab",
+      "sizeBytes": 145265304
+    }
+  }
+}

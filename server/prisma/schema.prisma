@@ -130,6 +130,7 @@ model UploadIntent {
   observedSizeBytes    BigInt?
   observedContentType  String?   @db.VarChar(100)
   storageEtag          String?   @db.VarChar(255)
+  storageRevision      String?   @db.VarChar(1024)
   completedAt          DateTime? @db.Timestamptz(3)
   createdAt            DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime  @updatedAt @db.Timestamptz(3)

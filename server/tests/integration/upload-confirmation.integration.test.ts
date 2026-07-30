@@ -103,9 +103,14 @@ class ControlledObjectStorage implements ObjectStorage {
       sizeBytes: target.sizeBytes,
       contentType: target.contentType,
       etag: '"opaque-synthetic-etag"',
+      storageRevision: 'synthetic-version-1',
       metadata: { 'upload-intent-id': target.uploadIntentId },
       ...override,
     };
+  }
+
+  public async readConfirmedObject(): Promise<never> {
+    throw new Error('Unexpected confirmed object read.');
   }
 }
 
@@ -247,7 +252,7 @@ describeWithPostgres('PostgreSQL uploaded object confirmation', () => {
     expect(stored.completedAt?.toISOString()).toBe(result.upload.completedAt);
   });
 
-  it('4. persists only normalized observed metadata and opaque ETag', async () => {
+  it('4. persists observed metadata, opaque ETag, and immutable revision', async () => {
     const fixture = await createFixture();
     storage.metadataOverride = {
       contentType: ' VIDEO/MP4 ',
@@ -261,12 +266,14 @@ describeWithPostgres('PostgreSQL uploaded object confirmation', () => {
           observedSizeBytes: true,
           observedContentType: true,
           storageEtag: true,
+          storageRevision: true,
         },
       }),
     ).resolves.toEqual({
       observedSizeBytes: 4_096n,
       observedContentType: 'video/mp4',
       storageEtag: '"opaque-value"',
+      storageRevision: 'synthetic-version-1',
     });
 
     storage.metadataOverride = { etag: '   ' };
@@ -407,12 +414,14 @@ describeWithPostgres('PostgreSQL uploaded object confirmation', () => {
         observedSizeBytes: true,
         observedContentType: true,
         storageEtag: true,
+        storageRevision: true,
         completedAt: true,
       },
     });
     expect(stored.observedSizeBytes).toBe(4_096n);
     expect(stored.observedContentType).toBe('video/mp4');
     expect(stored.storageEtag).toBe('"opaque-synthetic-etag"');
+    expect(stored.storageRevision).toBe('synthetic-version-1');
     expect(stored.completedAt?.toISOString()).toBe(
       results[0]?.upload.completedAt,
     );

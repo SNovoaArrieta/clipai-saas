@@ -1,3 +1,5 @@
+import { isAbsolute } from 'node:path';
+
 const nodeEnvironments = ['development', 'test', 'production'] as const;
 const authModes = ['disabled', 'supabase'] as const;
 const storageModes = ['disabled', 's3'] as const;
@@ -11,6 +13,9 @@ interface BaseEnvConfig {
   readonly port: number;
   readonly supabaseJwtAudience: string;
   readonly databaseUrl?: string;
+  readonly ffprobePath?: string;
+  readonly mediaValidationMaxBytes?: number;
+  readonly mediaValidationDownloadTimeoutMs?: number;
 }
 
 export interface DisabledAuthEnvConfig extends BaseEnvConfig {
@@ -314,6 +319,52 @@ function parseDatabaseUrl(
   return value;
 }
 
+function parseBoundedInteger(
+  name: string,
+  value: string | undefined,
+  defaultValue: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const candidate = value ?? String(defaultValue);
+  if (!/^[0-9]+$/.test(candidate)) {
+    throw new Error(`Invalid ${name}: expected an integer.`);
+  }
+
+  const parsed = Number(candidate);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new Error(
+      `Invalid ${name}: expected an integer from ${minimum} to ${maximum}.`,
+    );
+  }
+  return parsed;
+}
+
+function parseFfprobePath(
+  value: string | undefined,
+  nodeEnvironment: NodeEnvironment,
+): string | undefined {
+  if (value === undefined || value.length === 0) {
+    if (nodeEnvironment === 'production') {
+      throw new Error(
+        'Missing FFPROBE_PATH: an explicitly provisioned ffprobe binary is required in production.',
+      );
+    }
+    return undefined;
+  }
+  if (
+    value.trim() !== value ||
+    value.length > 1_024 ||
+    !isAbsolute(value) ||
+    /\p{Cc}/u.test(value)
+  ) {
+    throw new Error(
+      'Invalid FFPROBE_PATH: expected an absolute path without control characters.',
+    );
+  }
+  return value;
+}
+
 export function loadEnv(
   environment: NodeJS.ProcessEnv = process.env,
 ): EnvConfig {
@@ -324,6 +375,32 @@ export function loadEnv(
   const databaseUrl = parseDatabaseUrl(environment.DATABASE_URL, nodeEnv);
   const storageConfig = parseStorageConfig(environment, nodeEnv);
   const databaseConfig = databaseUrl === undefined ? {} : { databaseUrl };
+  const ffprobePath = parseFfprobePath(environment.FFPROBE_PATH, nodeEnv);
+  const mediaConfig = {
+    ...(ffprobePath === undefined ? {} : { ffprobePath }),
+    ...(environment.MEDIA_VALIDATION_MAX_BYTES === undefined
+      ? {}
+      : {
+          mediaValidationMaxBytes: parseBoundedInteger(
+            'MEDIA_VALIDATION_MAX_BYTES',
+            environment.MEDIA_VALIDATION_MAX_BYTES,
+            262_144_000,
+            1,
+            262_144_000,
+          ),
+        }),
+    ...(environment.MEDIA_VALIDATION_DOWNLOAD_TIMEOUT_MS === undefined
+      ? {}
+      : {
+          mediaValidationDownloadTimeoutMs: parseBoundedInteger(
+            'MEDIA_VALIDATION_DOWNLOAD_TIMEOUT_MS',
+            environment.MEDIA_VALIDATION_DOWNLOAD_TIMEOUT_MS,
+            120_000,
+            1_000,
+            300_000,
+          ),
+        }),
+  };
 
   if (authMode === 'supabase') {
     return {
@@ -332,6 +409,7 @@ export function loadEnv(
       authMode,
       supabaseUrl: parseSupabaseUrl(environment.SUPABASE_URL),
       supabaseJwtAudience,
+      ...mediaConfig,
       ...storageConfig,
       ...databaseConfig,
     };
@@ -342,6 +420,7 @@ export function loadEnv(
     port,
     authMode,
     supabaseJwtAudience,
+    ...mediaConfig,
     ...storageConfig,
     ...databaseConfig,
   };

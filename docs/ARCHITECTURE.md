@@ -284,12 +284,19 @@ se guarda en PostgreSQL.
 
 La confirmación resuelve Project e intención con `workspaceId`, devuelve replays
 completados sin contactar storage y ejecuta `HeadObject` solo sobre la object key
-persistida. El target exige `x-amz-meta-upload-intent-id` ligado a la firma. Tras
-validar tamaño, `Content-Type` y ese vínculo fuera de PostgreSQL, una transacción
-corta reclama condicionalmente `completedAt`, persiste la observación coherente y
-avanza `Source.submitted → validating`. Confirmaciones concurrentes que pierden
-la actualización releen el resultado autoritativo; ninguna transacción permanece
-abierta durante la llamada de red.
+persistida. El target exige `x-amz-meta-upload-intent-id` ligado a la firma. La
+implementación conserva temporalmente ese único `HEAD` dentro de la transacción
+existente, bajo locks `Project → Source → UploadIntent` y con timeout de diez
+segundos; extraerlo es deuda técnica explícita. Persiste el `VersionId` real y avanza
+`Source.submitted → validating`; storage productivo debe soportar versioning.
+
+La validación de media separa preflight y finalización en transacciones cortas
+con locks `Project → Source → UploadIntent`. Entre ambas descarga exactamente el
+`storageRevision` confirmado a un temporal privado mediante streaming y ejecuta
+un `MediaInspector` ffprobe inyectable, sin locks PostgreSQL. La finalización
+usa un CAS con predicates de tenant, estado, archivo, activación y revisión; un
+CAS perdido relee el terminal para devolver replay. No crea estados, leases,
+claims, jobs ni activación.
 
 El modelo conceptual incluye:
 

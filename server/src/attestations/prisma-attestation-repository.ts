@@ -107,6 +107,19 @@ export class PrismaAttestationRepository implements AttestationRepository {
     input: CreateAttestationInput,
   ): Promise<CreateAttestationRepositoryResult> {
     try {
+      const existingKey = await this.prisma.ownershipAttestation.findUnique({
+        where: {
+          workspaceId_createIdempotencyKey: {
+            workspaceId: input.workspaceId,
+            createIdempotencyKey: input.idempotencyKey,
+          },
+        },
+        select: attestationSelection,
+      });
+      if (existingKey !== null) {
+        return this.replayOrConflict(existingKey, input);
+      }
+
       return await this.prisma.$transaction(async (transaction) => {
         const projects = await transaction.$queryRaw<LockedProject[]>`
           SELECT "state", "archivedAt"
@@ -119,6 +132,21 @@ export class PrismaAttestationRepository implements AttestationRepository {
         if (project === undefined) {
           throw new AttestationProjectNotFoundError();
         }
+
+        const concurrentExistingKey =
+          await transaction.ownershipAttestation.findUnique({
+            where: {
+              workspaceId_createIdempotencyKey: {
+                workspaceId: input.workspaceId,
+                createIdempotencyKey: input.idempotencyKey,
+              },
+            },
+            select: attestationSelection,
+          });
+        if (concurrentExistingKey !== null) {
+          return this.replayOrConflict(concurrentExistingKey, input);
+        }
+
         if (project.state === 'archived' || project.archivedAt !== null) {
           throw new AttestationProjectArchivedError();
         }
@@ -148,19 +176,6 @@ export class PrismaAttestationRepository implements AttestationRepository {
           ...source,
           uploadIntent: uploadIntents[0] ?? null,
         });
-
-        const existingKey = await transaction.ownershipAttestation.findUnique({
-          where: {
-            workspaceId_createIdempotencyKey: {
-              workspaceId: input.workspaceId,
-              createIdempotencyKey: input.idempotencyKey,
-            },
-          },
-          select: attestationSelection,
-        });
-        if (existingKey !== null) {
-          return this.replayOrConflict(existingKey, input);
-        }
 
         const existingStatement =
           await transaction.ownershipAttestation.findUnique({

@@ -106,6 +106,8 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
           expiresAt: new Date(Date.now() + 60_000),
           observedSizeBytes: options.completed === false ? null : 1024n,
           observedContentType: options.completed === false ? null : 'video/mp4',
+          storageRevision:
+            options.completed === false ? null : `revision-${randomUUID()}`,
           completedAt: options.completed === false ? null : new Date(),
           createIdempotencyKey: `upload:${randomUUID()}`,
         },
@@ -385,6 +387,115 @@ describeWithPostgres('HTTP PostgreSQL OwnershipAttestation foundation', () => {
     expect(replay.status).toBe(201);
     expect(replay.headers['idempotency-replayed']).toBe('true');
     expect(replay.body.data).toEqual(first.body.data);
+    await expect(
+      databaseClient.prisma.ownershipAttestation.count({
+        where: { sourceId: source.sourceId },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it.each(['accepted', 'rejected'] as const)(
+    'replays the original attestation after Source becomes %s',
+    async (state) => {
+      const { actor, project, source } = await createFixture();
+      const key = `attestation:${randomUUID()}`;
+      const first = await postAttestation(
+        actor.authSubject,
+        project.project.id,
+        source.sourceId,
+        { key },
+      );
+      expect(first.status).toBe(201);
+
+      await databaseClient.prisma.source.update({
+        where: { id: source.sourceId },
+        data: { state },
+      });
+
+      const replay = await postAttestation(
+        actor.authSubject,
+        project.project.id,
+        source.sourceId,
+        { key },
+      );
+      expect(replay.status).toBe(201);
+      expect(replay.headers['idempotency-replayed']).toBe('true');
+      expect(replay.body.data).toEqual(first.body.data);
+      await expect(
+        databaseClient.prisma.ownershipAttestation.count({
+          where: { sourceId: source.sourceId },
+        }),
+      ).resolves.toBe(1);
+    },
+  );
+
+  it.each(['accepted', 'rejected'] as const)(
+    'does not allow a new attestation after Source becomes %s',
+    async (state) => {
+      const { actor, project, source } = await createFixture();
+      const first = await postAttestation(
+        actor.authSubject,
+        project.project.id,
+        source.sourceId,
+      );
+      expect(first.status).toBe(201);
+
+      await databaseClient.prisma.source.update({
+        where: { id: source.sourceId },
+        data: { state },
+      });
+
+      const newRequest = await postAttestation(
+        actor.authSubject,
+        project.project.id,
+        source.sourceId,
+      );
+      expect(newRequest.status).toBe(409);
+      expect(newRequest.body.error.code).toBe(
+        'SOURCE_NOT_READY_FOR_ATTESTATION',
+      );
+      await expect(
+        databaseClient.prisma.ownershipAttestation.count({
+          where: { sourceId: source.sourceId },
+        }),
+      ).resolves.toBe(1);
+    },
+  );
+
+  it('replays concurrent equivalent requests after Source becomes accepted', async () => {
+    const { actor, project, source } = await createFixture();
+    const key = `attestation:${randomUUID()}`;
+    const first = await postAttestation(
+      actor.authSubject,
+      project.project.id,
+      source.sourceId,
+      { key },
+    );
+    expect(first.status).toBe(201);
+    await databaseClient.prisma.source.update({
+      where: { id: source.sourceId },
+      data: { state: 'accepted' },
+    });
+
+    const replays = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        postAttestation(
+          actor.authSubject,
+          project.project.id,
+          source.sourceId,
+          { key },
+        ),
+      ),
+    );
+
+    expect(replays.every(({ status }) => status === 201)).toBe(true);
+    expect(
+      replays.every(
+        ({ body, headers }) =>
+          headers['idempotency-replayed'] === 'true' &&
+          body.data.id === first.body.data.id,
+      ),
+    ).toBe(true);
     await expect(
       databaseClient.prisma.ownershipAttestation.count({
         where: { sourceId: source.sourceId },

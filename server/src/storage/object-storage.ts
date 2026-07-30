@@ -14,7 +14,21 @@ export interface UploadedObjectMetadata {
   readonly sizeBytes: number;
   readonly contentType?: string;
   readonly etag?: string;
+  readonly storageRevision: string;
   readonly metadata: Readonly<Record<string, string>>;
+}
+
+export interface ReadConfirmedObjectInput {
+  readonly objectKey: string;
+  readonly storageRevision: string;
+  readonly expectedSizeBytes: number;
+  readonly maximumSizeBytes: number;
+  readonly timeoutMilliseconds: number;
+}
+
+export interface ConfirmedObject {
+  readonly sizeBytes: number;
+  readonly body: AsyncIterable<Uint8Array>;
 }
 
 export interface UploadTarget {
@@ -29,6 +43,9 @@ export interface ObjectStorage {
   inspectUploadedObject(
     input: InspectUploadedObjectInput,
   ): Promise<UploadedObjectMetadata>;
+  readConfirmedObject(
+    input: ReadConfirmedObjectInput,
+  ): Promise<ConfirmedObject>;
 }
 
 export class ObjectStorageNotFoundError extends Error {

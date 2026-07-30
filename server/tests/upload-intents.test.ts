@@ -45,6 +45,9 @@ function createObjectStorage(): ObjectStorage {
     inspectUploadedObject: vi.fn(async () => {
       throw new Error('Unexpected object inspection.');
     }),
+    readConfirmedObject: vi.fn(async () => {
+      throw new Error('Unexpected confirmed object read.');
+    }),
   };
 }
 

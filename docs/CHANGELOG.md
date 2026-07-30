@@ -4,6 +4,35 @@ Este documento registra cambios relevantes de producto, arquitectura y
 fundación. No sustituye el historial de Git ni afirma que una decisión esté
 implementada.
 
+## 2026-07-29 — Source media validation and disposition
+
+### Added
+
+- `POST /api/v1/projects/:projectId/sources/:sourceId/validate` autenticado,
+  tenant-safe y naturalmente idempotente para inspeccionar la revisión
+  confirmada y dejar la Source en `accepted` o `rejected`.
+- `UploadIntent.storageRevision` con el `VersionId` real del proveedor y un
+  constraint PostgreSQL `NOT VALID` que exige revisión para nuevas filas
+  completadas sin inventar un backfill para datos históricos.
+- Descarga `GetObject` por revisión y streaming a archivo temporal privado, con
+  límite inicial de 250 MiB, timeout, conteo exacto y cleanup obligatorio.
+- `MediaInspector` inyectable y adapter ffprobe para clasificación conservadora
+  de MP4, MOV, MP3 y WAV; artefactos Linux/Windows fijados por versión y SHA-256.
+- Compatibilidad de replay de `OwnershipAttestation` después de que la Source
+  alcance un estado terminal.
+
+### Scope and validation status
+
+- La validación usa preflight transaccional, I/O sin locks y finalización CAS
+  transaccional. Una revisión ausente o irrecuperable produce
+  `503 STORAGE_REVISION_UNAVAILABLE` y conserva `validating`.
+- `rejected` se reserva para bytes recuperados que MediaInspector determina
+  inválidos. No se activa la Source ni se crean jobs, transcripciones, análisis,
+  consumo o llamadas de IA.
+- El `HEAD` de confirmación conserva temporalmente los locks globales
+  `Project → Source → UploadIntent`, limitado a diez segundos; sacarlo de la
+  transacción queda como deuda técnica explícita.
+
 ## 2026-07-15 — OwnershipAttestation foundation
 
 ### Added
