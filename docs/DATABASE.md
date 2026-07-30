@@ -220,7 +220,8 @@ longitudes, defaults ni nombres definitivos de índices.
   attestations o jobs que deban conservarse.
 - **Estado implementado:** `Source` conserva `workspaceId`, `projectId`, tipo
   `upload`, estado inicial `submitted`, transición confirmada a `validating`,
-  `safeReference`, `durationMs` nullable, `isActive = false` y timestamps. La foreign key compuesta
+  disposición validada a `accepted | rejected`, `safeReference`, `durationMs`
+  nullable, `isActive = false` y timestamps. La foreign key compuesta
   `(projectId, workspaceId) → Project(id, workspaceId)` impide asociaciones
   cross-tenant incluso ante escrituras directas.
 
@@ -230,13 +231,18 @@ longitudes, defaults ni nombres definitivos de índices.
   el objeto privado de un único `Source`.
 - **Campos implementados:** UUID, scope de workspace y Project, `sourceId`,
   object key opaca, filename y declaraciones de tipo/tamaño, expiración,
-  `observedSizeBytes`, `observedContentType`, `storageEtag` y `completedAt`
-  nullables antes de confirmar, timestamps y clave idempotente tenant-safe.
+  `observedSizeBytes`, `observedContentType`, `storageEtag`, `storageRevision` y
+  `completedAt` nullables antes de confirmar, timestamps y clave idempotente
+  tenant-safe.
 - **Restricciones:** `sourceId` y object key son únicos; la relación compuesta
   con Source mantiene los tres IDs coherentes. La URL firmada, credenciales y
   payloads del SDK nunca se persisten. Al confirmar, tamaño y tipo deben
   coincidir exactamente con la declaración y la metadata interna debe ligar el
   objeto con la intención. `storageEtag` es opcional y opaco, no un checksum.
+  `storageRevision` es únicamente el `VersionId` real del proveedor. El
+  constraint `completedAt IS NULL OR storageRevision IS NOT NULL` se añadió
+  `NOT VALID`: se aplica a escrituras nuevas y permite conservar filas
+  históricas sin inventar una revisión.
   `expiresAt` limita el target firmado, no impide confirmar un objeto existente.
   La limpieza automática de intenciones expiradas permanece pendiente.
 
@@ -476,11 +482,19 @@ terminales para ese registro. `awaiting_input` pertenece exclusivamente a
 de ser activa no altera su estado. Otro archivo soportado se registra como una
 fuente nueva, no como una mutación de la original.
 
-La confirmación de metadata implementa únicamente `submitted → validating`.
-Una actualización condicional de `UploadIntent.completedAt` elige una sola
-observación concurrente y la misma transacción corta avanza el Source; `HEAD`
-ocurre antes de abrirla. Confirmar no demuestra MIME real, no crea una
-`OwnershipAttestation`, no acepta y no activa la fuente.
+La confirmación de metadata implementa `submitted → validating`. Mantiene
+temporalmente `HEAD` dentro de la transacción y bajo locks
+`Project → Source → UploadIntent`, con timeout estricto de diez segundos;
+extraer ese I/O es deuda técnica. No se añadirán más llamadas externas dentro
+de esa transacción.
+
+La disposición `validating → accepted | rejected` usa tres fases: preflight
+corto con locks globales `Project → Source → UploadIntent`; GET versionado,
+streaming y ffprobe sin transacción ni locks; y finalización corta con el mismo
+orden. El CAS exige scope, estado, inactividad, no archivo y la misma
+`storageRevision`, actualiza exactamente una fila y, si actualiza cero, relee
+el estado autoritativo bajo locks. Una revisión ausente conserva `validating`;
+solo contenido recuperado e inválido termina en `rejected`.
 
 ### `ProcessingJob`
 

@@ -400,8 +400,9 @@ permitidos requiere revisión del threat model y controles de egress.
 ### Uploads
 
 El upload directo de MP4, MOV, MP3 y WAV está `Approved` como primer Source. La
-intención privada y la confirmación de metadata de storage están implementadas;
-la inspección real de bytes y los controles posteriores siguen pendientes. Los uploads:
+intención privada, la confirmación versionada y la inspección conservadora de
+container, streams y duración están implementadas. Malware scanning, límites de
+duración/frecuencia y lifecycle siguen pendientes. Los uploads:
 
 - requerirán una sesión y una intención server-side previa;
 - usarán referencias y object keys aleatorios, no paths elegidos por el usuario;
@@ -421,13 +422,22 @@ la inspección real de bytes y los controles posteriores siguen pendientes. Los 
 La implementación actual genera object keys aleatorias server-side y targets
 `PUT` firmados por diez minutos sobre storage S3-compatible privado. El target
 exige `Content-Type` y `x-amz-meta-upload-intent-id` ligados a la firma. La
-confirmación usa `HEAD` solo sobre la key persistida y exige existencia, tamaño
-exacto, `Content-Type` normalizado y metadata vinculante; no acepta key, bucket ni
-URL del cliente. Esta metadata no demuestra MIME real, magic bytes, ausencia de
-malware ni autorización. La confirmación por sí sola deja el Source
+confirmación usa `HEAD` solo sobre la key persistida, con timeout de diez
+segundos, y exige existencia, tamaño exacto, `Content-Type`, metadata vinculante
+y `VersionId`; no acepta key, bucket ni URL del cliente. Mantener ese HEAD bajo
+los locks globales `Project → Source → UploadIntent` es deuda técnica temporal.
+La confirmación por sí sola deja el Source
 `validating`, inactivo y sin attestation; nunca `accepted`. La attestation puede
 registrarse después mediante su endpoint, pero tampoco cambia ese estado ni
-activa la Source. La URL temporal
+activa la Source.
+
+La validación recupera solo el VersionId confirmado mediante GET versionado y
+streaming a un archivo temporal privado `0600`, con directorio `0700`, límite de
+250 MiB, timeout y conteo exacto. El temporal se elimina siempre. ffprobe usa
+argumentos fijos, sin shell, protocolo local, límites de análisis/salida y
+timeout. Una revisión ausente no se interpreta como media inválida y no cambia
+el estado. Las respuestas y errores no exponen bucket, key, revisión, ETag,
+paths, stderr ni mensajes del SDK. La URL temporal
 se entrega con `Cache-Control: no-store`, no se persiste ni se registra.
 La eliminación de intenciones expiradas y objetos incompletos sigue pendiente
 de una política de lifecycle; su expiración no demuestra que exista un objeto.

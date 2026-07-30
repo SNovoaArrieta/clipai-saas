@@ -4,11 +4,18 @@ import { DefaultAttestationService } from './attestations/attestation-service.js
 import { loadEnv } from './config/env.js';
 import { createPrismaDatabaseClient } from './database/prisma-database-client.js';
 import { SupabaseIdentityVerifier } from './identity/supabase-identity-verifier.js';
+import { FfprobeMediaInspector } from './media/ffprobe-media-inspector.js';
 import { PrismaProjectService } from './projects/prisma-project-service.js';
 import { PrismaIdentityProvisioner } from './provisioning/prisma-identity-provisioner.js';
 import { S3ObjectStorage } from './storage/s3-object-storage.js';
 import { PrismaSourceRepository } from './sources/prisma-source-repository.js';
 import { DefaultSourceService } from './sources/source-service.js';
+import { PrismaSourceValidationRepository } from './sources/prisma-source-validation-repository.js';
+import {
+  DEFAULT_MEDIA_VALIDATION_DOWNLOAD_TIMEOUT_MS,
+  DEFAULT_MEDIA_VALIDATION_MAX_BYTES,
+  DefaultSourceValidationService,
+} from './sources/source-validation-service.js';
 import { PrismaUploadIntentService } from './uploads/prisma-upload-intent-service.js';
 
 const env = loadEnv();
@@ -41,6 +48,19 @@ const sourceService =
     : new DefaultSourceService(
         new PrismaSourceRepository(databaseClient.prisma),
       );
+const sourceValidationService =
+  databaseClient === undefined
+    ? undefined
+    : new DefaultSourceValidationService(
+        new PrismaSourceValidationRepository(databaseClient.prisma),
+        {
+          maximumSizeBytes:
+            env.mediaValidationMaxBytes ?? DEFAULT_MEDIA_VALIDATION_MAX_BYTES,
+          downloadTimeoutMs:
+            env.mediaValidationDownloadTimeoutMs ??
+            DEFAULT_MEDIA_VALIDATION_DOWNLOAD_TIMEOUT_MS,
+        },
+      );
 const attestationService =
   databaseClient === undefined
     ? undefined
@@ -58,6 +78,10 @@ const objectStorage =
         forcePathStyle: env.s3ForcePathStyle,
       })
     : undefined;
+const mediaInspector =
+  env.ffprobePath === undefined
+    ? undefined
+    : new FfprobeMediaInspector({ ffprobePath: env.ffprobePath });
 const app = createApp({
   ...(attestationService === undefined ? {} : { attestationService }),
   ...(identityVerifier === undefined ? {} : { identityVerifier }),
@@ -66,6 +90,8 @@ const app = createApp({
   ...(sourceService === undefined ? {} : { sourceService }),
   ...(uploadIntentService === undefined ? {} : { uploadIntentService }),
   ...(objectStorage === undefined ? {} : { objectStorage }),
+  ...(sourceValidationService === undefined ? {} : { sourceValidationService }),
+  ...(mediaInspector === undefined ? {} : { mediaInspector }),
 });
 
 const httpServer = app.listen(env.port, () => {

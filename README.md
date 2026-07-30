@@ -6,24 +6,23 @@ Instagram Reels y YouTube Shorts.
 
 ## Estado del proyecto
 
-ClipAI se encuentra en **Fase 0 — Foundation**. Este repositorio contiene la
-documentación aprobada y el toolchain inicial, pero todavía no contiene las
-aplicaciones frontend o backend.
+ClipAI se encuentra en **Fase 1 — Internal Alpha**. El repositorio contiene una
+fundación backend Express/TypeScript con persistencia PostgreSQL/Prisma,
+autenticación server-side y el primer flujo privado de Source por upload.
 
 Existe actualmente:
 
-- documentación aprobada de producto, arquitectura, datos, API y seguridad;
-- un workspace npm privado reservado para `client/` y `server/`;
-- configuración base de TypeScript, ESLint, Prettier y CI; y
+- documentación de producto, arquitectura, datos, API y seguridad;
+- API autenticada para Projects, Sources, uploads y attestations;
+- confirmación versionada e inspección MP4, MOV, MP3 y WAV mediante ffprobe;
+- configuración de TypeScript, ESLint, Prettier, Prisma, Vitest y CI; y
 - un prototipo histórico aislado en `legacy/`, usado solo como referencia.
 
 No está implementado:
 
 - el frontend React/Vite;
-- la API o el worker Express;
-- PostgreSQL, Prisma o migrations;
-- autenticación, autorización o billing;
-- adquisición o procesamiento de videos y transcripts; ni
+- activación de Sources, workers, queues o ProcessingJobs;
+- transcripción, análisis, consumo o billing;
 - análisis mediante IA o integraciones con proveedores.
 
 ## Documentación aprobada
@@ -40,10 +39,11 @@ No está implementado:
 ## Estructura
 
 ```text
-client/   # Workspace reservado para el frontend futuro
-server/   # Workspace reservado para la API y el worker futuros
+client/   # Workspace reservado para el frontend
+server/   # API Express, dominio, adapters y persistencia
 docs/     # Documentación de producto y técnica
 legacy/   # Prototipos históricos excluidos de producción y tooling
+scripts/  # Aprovisionamiento explícito de herramientas de desarrollo/CI
 ```
 
 ## Requisitos
@@ -62,6 +62,7 @@ En PowerShell se recomienda invocar `npm.cmd`:
 node --version
 npm.cmd --version
 npm.cmd ci
+npm.cmd run ffprobe:provision:win32-x64
 npm.cmd run check
 ```
 
@@ -69,24 +70,25 @@ En shells donde `npm` se ejecute normalmente:
 
 ```sh
 npm ci
+npm run ffprobe:provision:linux-x64
 npm run check
 ```
 
 ## Scripts raíz
 
-| Script         | Comportamiento                                                                               |
-| -------------- | -------------------------------------------------------------------------------------------- |
-| `format`       | Aplica Prettier a los archivos administrados por el toolchain.                               |
-| `format:check` | Comprueba formato sin modificar archivos.                                                    |
-| `lint`         | Ejecuta ESLint con cero warnings permitidos.                                                 |
-| `typecheck`    | Ejecuta el comando de cada workspace; por ahora informa que no hay aplicaciones TypeScript.  |
-| `test`         | Ejecuta el comando de cada workspace; por ahora informa que no existen tests de aplicación.  |
-| `build`        | Ejecuta el comando de cada workspace; por ahora informa que no existen builds de aplicación. |
-| `check`        | Ejecuta format check, lint, typecheck, tests y builds en orden.                              |
+| Script         | Comportamiento                                                  |
+| -------------- | --------------------------------------------------------------- |
+| `format`       | Aplica Prettier a los archivos administrados por el toolchain.  |
+| `format:check` | Comprueba formato sin modificar archivos.                       |
+| `lint`         | Ejecuta ESLint con cero warnings permitidos.                    |
+| `typecheck`    | Ejecuta la comprobación TypeScript de cada workspace.           |
+| `test`         | Ejecuta las pruebas unitarias de cada workspace.                |
+| `build`        | Genera los builds autorizados de cada workspace.                |
+| `check`        | Ejecuta format check, lint, typecheck, tests y builds en orden. |
 
-Los scripts provisionales muestran explícitamente `[SKIPPED]`; no representan
-cobertura ni aplicaciones construidas. Se reemplazarán por validaciones reales
-cuando cada aplicación sea autorizada y creada.
+Las pruebas PostgreSQL requieren `TEST_DATABASE_URL`. El contract test real de
+media requiere `FFPROBE_PATH`; los scripts `ffprobe:provision:*` descargan el
+artefacto fijado, verifican su SHA-256 y no se ejecutan durante requests.
 
 Consulta [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) para las convenciones de
 desarrollo, variables de entorno, revisión y solución de problemas en Windows.

@@ -7,7 +7,7 @@
 | Documento | `05 — API Foundation` |
 | Versión | `0.5` |
 | Estado | `Approved as initial API design` |
-| Estado de implementación | `Partial — Project/Source listing, private upload confirmation and OwnershipAttestation foundation implemented` |
+| Estado de implementación | `Partial — Project/Source listing, private versioned upload validation and OwnershipAttestation implemented` |
 | Fase | Fase 1 — Internal Alpha |
 | Última actualización | 2026-07-15 |
 
@@ -453,6 +453,7 @@ archive.
 | --- | --- | --- | --- | --- | --- |
 | `Implemented — private upload foundation` | `POST /api/v1/projects/:projectId/upload-intents` | Required | `{ filename, contentType, sizeBytes }` + `Idempotency-Key` | Source `submitted` + target PUT temporal | `201` |
 | `Implemented — private upload confirmation` | `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` | Required | Body ausente o `{}` | Source `validating` + upload completado | `200` |
+| `Implemented — media validation` | `POST /api/v1/projects/:projectId/sources/:sourceId/validate` | Required | Body ausente o `{}` | Source terminal `accepted` o `rejected` | `200` |
 | `Draft / Not implemented` | `POST /api/v1/projects/:projectId/sources` | Required | `{ sourceType: "upload", uploadHandle }` + `Idempotency-Key` | Source | `201` |
 | `Implemented — workspace/project-scoped foundation` | `GET /api/v1/projects/:projectId/sources` | Required | `cursor`, `limit` | Sources paginados | `200` |
 | `Implemented — validating upload attestation foundation` | `POST /api/v1/projects/:projectId/sources/:sourceId/attestations` | Required | Attestation + `Idempotency-Key` | OwnershipAttestation | `201` |
@@ -507,12 +508,29 @@ intención vigente o regenerada no afirma que el objeto exista.
 La confirmación busca la intención solo dentro del Project y Workspace
 autenticados, ejecuta `HeadObject` sobre la object key persistida y exige tamaño,
 `Content-Type` normalizado y metadata `upload-intent-id` coincidentes. Persiste
-solo tamaño y tipo observados, `completedAt` y un ETag opaco opcional; el ETag no
-es un checksum y nunca se devuelve. La operación permite confirmar después de
+el tamaño y tipo observados, `completedAt`, un ETag opaco opcional y el
+`VersionId` real del proveedor como `storageRevision`; el ETag no identifica la
+revisión ni es un checksum. La operación permite confirmar después de
 `expiresAt`, porque ese campo solo expira el target firmado. La primera
-confirmación cambia `submitted → validating`; no verifica MIME real, no acepta,
-no attesta y no activa el Source. Un replay completado no repite `HEAD` y puede
+confirmación cambia `submitted → validating`; no acepta, no attesta y no activa
+el Source. Un replay completado no repite `HEAD` y puede
 incluir `Upload-Confirmation-Replayed: true`.
+
+`POST /api/v1/projects/:projectId/sources/:sourceId/validate` no acepta query,
+campos de body ni `Idempotency-Key`. Exige una Source upload `validating`,
+inactiva, no archivada, con attestation vigente y `UploadIntent` completado con
+`storageRevision`. Descarga exactamente esa revisión, nunca el objeto latest,
+inspecciona los bytes mediante ffprobe y responde el mismo Source view público.
+Una transición propia no añade headers; un replay terminal responde también
+`200` con `Source-Validation-Replayed: true`.
+
+La validación acepta de forma conservadora MP4, MOV, MP3 o WAV cuando container,
+stream requerido y duración son coherentes. Bytes recuperados pero inválidos,
+truncados, sin stream requerido o con MIME discordante dejan `rejected`.
+Ausencia, eliminación o mismatch de la revisión devuelve
+`503 STORAGE_REVISION_UNAVAILABLE`; storage o inspector temporalmente
+indisponibles devuelven `503` seguro y la Source permanece `validating`. Ninguna
+respuesta expone bucket, object key, VersionId, ETag, path o stderr.
 
 Crear una fuente no inicia análisis ni consume uso. La attestation requiere:
 
@@ -1460,6 +1478,11 @@ backoff máximo y timeout de UX permanecen pendientes de medición.
 | `RESOURCE_NOT_FOUND` | `404` | Recurso ausente o fuera del workspace. |
 | `INVALID_STATE` | `409` | El recurso no admite la transición solicitada. |
 | `SOURCE_NOT_READY_FOR_ATTESTATION` | `409` | La Source o su upload todavía no cumplen las precondiciones de attestation. |
+| `SOURCE_VALIDATION_INPUT_INVALID` | `400` | Path, query o body no cumplen el contrato vacío de validación. |
+| `SOURCE_NOT_READY_FOR_VALIDATION` | `409` | La Source, upload o attestation no cumplen las precondiciones de inspección. |
+| `STORAGE_REVISION_UNAVAILABLE` | `503` | La revisión confirmada no puede recuperarse exactamente; la Source sigue validating. |
+| `OBJECT_STORAGE_UNAVAILABLE` | `503` | El storage no completó la descarga acotada. |
+| `MEDIA_INSPECTOR_UNAVAILABLE` | `503` | El inspector no pudo producir una decisión fiable. |
 | `ANALYSIS_ALREADY_IN_PROGRESS` | `409` | El Project ya tiene un ProcessingJob de análisis no terminal. |
 | `PROJECT_HAS_ACTIVE_JOB` | `409` | El job del Project debe alcanzar un estado terminal antes del archive. |
 | `OWNERSHIP_ATTESTATION_REQUIRED` | `409` | Falta una attestation válida. |
@@ -1583,6 +1606,7 @@ Estado real del repositorio al publicar esta versión:
 | `GET /api/v1/projects` | `Implemented — workspace-scoped cursor pagination` |
 | `POST /api/v1/projects/:projectId/upload-intents` | `Implemented — private temporary PUT target` |
 | `POST /api/v1/projects/:projectId/upload-intents/:uploadHandle/confirm` | `Implemented — private HEAD metadata confirmation` |
+| `POST /api/v1/projects/:projectId/sources/:sourceId/validate` | `Implemented — exact-revision media inspection and disposition` |
 | `GET /health/live` | `Planned Phase 0 / Not implemented` |
 | `GET /health/ready` | `Planned Phase 0 / Not implemented` |
 | JWT identity verification | `Implemented and locally verified` |
@@ -1596,7 +1620,8 @@ Estado real del repositorio al publicar esta versión:
 `Project`, `Source`, `UploadIntent` y `OwnershipAttestation`; crea y lista
 Projects, lista Sources, emite targets temporales, confirma metadata de objetos
 y registra la declaración de autorización con aislamiento de workspace, pero no
-inspecciona bytes, acepta o activa Sources, procesa videos ni cobra uso. Las 202
+inspecciona bytes de la revisión confirmada y acepta o rechaza Sources; todavía
+no las activa, procesa/transcribe videos ni cobra uso. Las 202
 pruebas unitarias y las 93 pruebas PostgreSQL pasan localmente. La ejecución
 remota del CI para esta ampliación permanece pendiente hasta publicar los
 cambios.

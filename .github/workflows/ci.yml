@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Provision pinned ffprobe
+        shell: bash
+        run: |
+          ffprobe_path="$(bash scripts/ffprobe/provision-linux-x64.sh)"
+          echo "FFPROBE_PATH=$ffprobe_path" >> "$GITHUB_ENV"
+
       - name: Check formatting
         run: npm run format:check
 
@@ -41,6 +47,9 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      - name: Test pinned ffprobe contract
+        run: npm run test:media:contract --workspace=@clipai/server
 
       - name: Build
         run: npm run build

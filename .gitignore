@@ -8,6 +8,8 @@ node_modules/
 !**/.env.example
 
 # Build files
+.artifacts/
+.tools/ffprobe/
 dist/
 build/
 coverage/

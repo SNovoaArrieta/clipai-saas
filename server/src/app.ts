@@ -13,6 +13,8 @@ import { AppError } from './shared/errors/app-error.js';
 import type { ObjectStorage } from './storage/object-storage.js';
 import type { SourceService } from './sources/source-service.js';
 import type { UploadIntentService } from './uploads/upload-intent-service.js';
+import type { SourceValidationService } from './sources/source-validation-service.js';
+import type { MediaInspector } from './media/media-inspector.js';
 
 export interface AppDependencies {
   readonly attestationService?: AttestationService;
@@ -22,6 +24,8 @@ export interface AppDependencies {
   readonly sourceService?: SourceService;
   readonly uploadIntentService?: UploadIntentService;
   readonly objectStorage?: ObjectStorage;
+  readonly sourceValidationService?: SourceValidationService;
+  readonly mediaInspector?: MediaInspector;
 }
 
 const notFoundHandler: RequestHandler = (request, response, next) => {
@@ -37,6 +41,22 @@ const errorHandler: ErrorRequestHandler = (
   next,
 ) => {
   void next;
+
+  if (
+    error instanceof SyntaxError &&
+    'status' in error &&
+    error.status === 400 &&
+    request.path.endsWith('/validate') &&
+    request.path.includes('/sources/')
+  ) {
+    response.status(400).json({
+      error: {
+        code: 'SOURCE_VALIDATION_INPUT_INVALID',
+        message: 'Source validation input is invalid.',
+      },
+    });
+    return;
+  }
 
   if (
     error instanceof SyntaxError &&

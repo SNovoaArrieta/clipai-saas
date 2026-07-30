@@ -6,6 +6,7 @@ import { isPersistenceUnavailable } from '../database/database-errors.js';
 import {
   ObjectStorageMetadataError,
   ObjectStorageNotFoundError,
+  ObjectStorageUnavailableError,
   type ObjectStorage,
   type UploadedObjectMetadata,
   type UploadTarget,
@@ -42,6 +43,7 @@ const persistedUploadSelection = {
   observedSizeBytes: true,
   observedContentType: true,
   storageEtag: true,
+  storageRevision: true,
   completedAt: true,
   source: {
     select: {
@@ -77,6 +79,7 @@ type PersistedUpload = {
   readonly observedSizeBytes: bigint | null;
   readonly observedContentType: string | null;
   readonly storageEtag: string | null;
+  readonly storageRevision: string | null;
   readonly completedAt: Date | null;
   readonly source: {
     readonly id: string;
@@ -142,6 +145,7 @@ interface VerifiedUploadObservation {
   readonly sizeBytes: bigint;
   readonly contentType: string;
   readonly etag: string | null;
+  readonly storageRevision: string;
 }
 
 function verifyUploadedObject(
@@ -153,6 +157,10 @@ function verifyUploadedObject(
     ([key]) => key.toLowerCase() === 'upload-intent-id',
   );
   const etag = metadata.etag?.trim() || null;
+  const storageRevision =
+    typeof metadata.storageRevision === 'string'
+      ? metadata.storageRevision.trim()
+      : '';
 
   if (
     !Number.isSafeInteger(metadata.sizeBytes) ||
@@ -164,7 +172,11 @@ function verifyUploadedObject(
     contentType !== upload.declaredContentType ||
     uploadIntentMetadata.length !== 1 ||
     uploadIntentMetadata[0]?.[1] !== upload.id ||
-    (etag !== null && (etag.length > 255 || controlCharacterPattern.test(etag)))
+    (etag !== null &&
+      (etag.length > 255 || controlCharacterPattern.test(etag))) ||
+    storageRevision.length === 0 ||
+    storageRevision.length > 1_024 ||
+    controlCharacterPattern.test(storageRevision)
   ) {
     throw new UploadMetadataMismatchError();
   }
@@ -173,6 +185,7 @@ function verifyUploadedObject(
     sizeBytes: BigInt(metadata.sizeBytes),
     contentType,
     etag,
+    storageRevision,
   };
 }
 
@@ -253,6 +266,44 @@ export class PrismaUploadIntentService implements UploadIntentService {
   ): Promise<ConfirmUploadIntentResult> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
+        const lockedProjects = await transaction.$queryRaw<{ id: string }[]>`
+          SELECT "id"
+          FROM "Project"
+          WHERE "id" = ${input.projectId}::uuid
+            AND "workspaceId" = ${input.workspaceId}::uuid
+          FOR UPDATE
+        `;
+
+        if (lockedProjects[0] === undefined) {
+          throw new UploadIntentNotFoundError();
+        }
+
+        const uploadIdentity = await transaction.uploadIntent.findFirst({
+          where: {
+            id: input.uploadHandle,
+            workspaceId: input.workspaceId,
+            projectId: input.projectId,
+          },
+          select: { sourceId: true },
+        });
+
+        if (uploadIdentity === null) {
+          throw new UploadIntentNotFoundError();
+        }
+
+        const lockedSources = await transaction.$queryRaw<{ id: string }[]>`
+          SELECT "id"
+          FROM "Source"
+          WHERE "id" = ${uploadIdentity.sourceId}::uuid
+            AND "workspaceId" = ${input.workspaceId}::uuid
+            AND "projectId" = ${input.projectId}::uuid
+          FOR UPDATE
+        `;
+
+        if (lockedSources[0] === undefined) {
+          throw new UploadPersistenceError('internal');
+        }
+
         const lockedUploads = await transaction.$queryRaw<{ id: string }[]>`
           SELECT "id"
           FROM "UploadIntent"
@@ -329,6 +380,7 @@ export class PrismaUploadIntentService implements UploadIntentService {
             observedSizeBytes: observation.sizeBytes,
             observedContentType: observation.contentType,
             storageEtag: observation.etag,
+            storageRevision: observation.storageRevision,
             completedAt: new Date(),
           },
         });
@@ -354,7 +406,8 @@ export class PrismaUploadIntentService implements UploadIntentService {
         error instanceof UploadProjectArchivedError ||
         error instanceof UploadMetadataMismatchError ||
         error instanceof UploadNotCompletedError ||
-        error instanceof UploadPersistenceError
+        error instanceof UploadPersistenceError ||
+        error instanceof ObjectStorageUnavailableError
       ) {
         throw error;
       }

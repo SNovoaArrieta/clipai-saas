@@ -15,6 +15,7 @@
     "typecheck": "npm run prisma:generate && tsc --noEmit",
     "lint": "eslint src tests prisma.config.ts vitest.config.ts vitest.integration.config.ts --max-warnings=0",
     "test": "npm run prisma:generate && vitest run",
+    "test:media:contract": "vitest run --config tests/media/vitest.contract.config.ts",
     "test:integration": "npm run prisma:generate && vitest run --config vitest.integration.config.ts",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "start": "node dist/server.js"

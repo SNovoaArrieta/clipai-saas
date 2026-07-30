@@ -78,6 +78,9 @@ function createDependencies(
     inspectUploadedObject: vi.fn(async () => {
       throw new Error('Unexpected direct object inspection.');
     }),
+    readConfirmedObject: vi.fn(async () => {
+      throw new Error('Unexpected confirmed object read.');
+    }),
   };
 
   return {

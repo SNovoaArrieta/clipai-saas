@@ -14,6 +14,8 @@
     "server"
   ],
   "scripts": {
+    "ffprobe:provision:linux-x64": "bash scripts/ffprobe/provision-linux-x64.sh",
+    "ffprobe:provision:win32-x64": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ffprobe/provision-win32-x64.ps1",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
     "lint": "eslint . --max-warnings=0",

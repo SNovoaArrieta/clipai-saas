@@ -1,4 +1,5 @@
 import {
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -10,11 +11,17 @@ import {
   ObjectStorageNotFoundError,
   ObjectStorageUnavailableError,
   type CreateUploadTargetInput,
+  type ConfirmedObject,
   type InspectUploadedObjectInput,
   type ObjectStorage,
+  type ReadConfirmedObjectInput,
   type UploadTarget,
   type UploadedObjectMetadata,
 } from './object-storage.js';
+
+const OBJECT_STORAGE_HEAD_TIMEOUT_MILLISECONDS = 10_000;
+const OBJECT_STORAGE_MAXIMUM_READ_TIMEOUT_MILLISECONDS = 300_000;
+const STORAGE_REVISION_MAXIMUM_LENGTH = 1_024;
 
 export interface S3ObjectStorageConfig {
   readonly endpoint: string;
@@ -78,12 +85,19 @@ export class S3ObjectStorage implements ObjectStorage {
   public async inspectUploadedObject(
     input: InspectUploadedObjectInput,
   ): Promise<UploadedObjectMetadata> {
+    const abortController = new AbortController();
+    const timeout = createRequestTimeout(
+      abortController,
+      OBJECT_STORAGE_HEAD_TIMEOUT_MILLISECONDS,
+    );
+
     try {
       const output = await this.client.send(
         new HeadObjectCommand({
           Bucket: this.config.bucket,
           Key: input.objectKey,
         }),
+        { abortSignal: abortController.signal },
       );
 
       if (
@@ -96,12 +110,14 @@ export class S3ObjectStorage implements ObjectStorage {
 
       const contentType = normalizeOptionalValue(output.ContentType, true);
       const etag = normalizeOptionalValue(output.ETag, false);
+      const storageRevision = normalizeStorageRevision(output.VersionId);
       const metadata = normalizeMetadata(output.Metadata ?? {});
 
       return {
         sizeBytes: output.ContentLength,
         ...(contentType === undefined ? {} : { contentType }),
         ...(etag === undefined ? {} : { etag }),
+        storageRevision,
         metadata,
       };
     } catch (error: unknown) {
@@ -114,7 +130,167 @@ export class S3ObjectStorage implements ObjectStorage {
       }
 
       throw new ObjectStorageUnavailableError();
+    } finally {
+      clearTimeout(timeout);
     }
+  }
+
+  public async readConfirmedObject(
+    input: ReadConfirmedObjectInput,
+  ): Promise<ConfirmedObject> {
+    assertReadInput(input);
+
+    const abortController = new AbortController();
+    const timeout = createRequestTimeout(
+      abortController,
+      input.timeoutMilliseconds,
+    );
+
+    try {
+      const output = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.config.bucket,
+          Key: input.objectKey,
+          VersionId: input.storageRevision,
+          Range: `bytes=0-${input.expectedSizeBytes - 1}`,
+        }),
+        { abortSignal: abortController.signal },
+      );
+
+      if (
+        output.ContentLength !== input.expectedSizeBytes ||
+        output.VersionId !== input.storageRevision
+      ) {
+        throw new ObjectStorageMetadataError();
+      }
+
+      if (!isAsyncByteIterable(output.Body)) {
+        throw new ObjectStorageUnavailableError();
+      }
+
+      return {
+        sizeBytes: output.ContentLength,
+        body: normalizeBody(
+          output.Body,
+          input.expectedSizeBytes,
+          input.maximumSizeBytes,
+          abortController,
+          timeout,
+        ),
+      };
+    } catch (error: unknown) {
+      clearTimeout(timeout);
+      abortController.abort();
+
+      if (error instanceof ObjectStorageMetadataError) {
+        throw error;
+      }
+
+      if (isNotFoundError(error)) {
+        throw new ObjectStorageNotFoundError();
+      }
+
+      throw new ObjectStorageUnavailableError();
+    }
+  }
+}
+
+function assertReadInput(input: ReadConfirmedObjectInput): void {
+  if (
+    !Number.isSafeInteger(input.expectedSizeBytes) ||
+    input.expectedSizeBytes < 1 ||
+    !Number.isSafeInteger(input.maximumSizeBytes) ||
+    input.maximumSizeBytes < 1 ||
+    input.expectedSizeBytes > input.maximumSizeBytes ||
+    !Number.isSafeInteger(input.timeoutMilliseconds) ||
+    input.timeoutMilliseconds < 1 ||
+    input.timeoutMilliseconds >
+      OBJECT_STORAGE_MAXIMUM_READ_TIMEOUT_MILLISECONDS ||
+    normalizeStorageRevision(input.storageRevision) !== input.storageRevision
+  ) {
+    throw new ObjectStorageMetadataError();
+  }
+}
+
+function createRequestTimeout(
+  abortController: AbortController,
+  timeoutMilliseconds: number,
+): NodeJS.Timeout {
+  const timeout = setTimeout(() => {
+    abortController.abort();
+  }, timeoutMilliseconds);
+  timeout.unref();
+  return timeout;
+}
+
+function normalizeStorageRevision(value: string | undefined): string {
+  const normalized = normalizeOptionalValue(value, false);
+  if (
+    normalized === undefined ||
+    normalized.length > STORAGE_REVISION_MAXIMUM_LENGTH
+  ) {
+    throw new ObjectStorageUnavailableError();
+  }
+
+  return normalized;
+}
+
+function isAsyncByteIterable(
+  value: unknown,
+): value is AsyncIterable<Uint8Array> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Symbol.asyncIterator in value &&
+    typeof value[Symbol.asyncIterator] === 'function'
+  );
+}
+
+async function* normalizeBody(
+  body: AsyncIterable<Uint8Array>,
+  expectedSizeBytes: number,
+  maximumSizeBytes: number,
+  abortController: AbortController,
+  timeout: NodeJS.Timeout,
+): AsyncIterable<Uint8Array> {
+  let observedSizeBytes = 0;
+
+  try {
+    for await (const chunk of body) {
+      if (!(chunk instanceof Uint8Array)) {
+        throw new ObjectStorageUnavailableError();
+      }
+
+      observedSizeBytes += chunk.byteLength;
+      if (
+        observedSizeBytes > maximumSizeBytes ||
+        observedSizeBytes > expectedSizeBytes
+      ) {
+        throw new ObjectStorageUnavailableError();
+      }
+
+      yield chunk;
+    }
+
+    if (observedSizeBytes !== expectedSizeBytes) {
+      throw new ObjectStorageUnavailableError();
+    }
+  } catch (error: unknown) {
+    if (
+      error instanceof ObjectStorageMetadataError ||
+      error instanceof ObjectStorageUnavailableError
+    ) {
+      throw error;
+    }
+
+    if (isNotFoundError(error)) {
+      throw new ObjectStorageNotFoundError();
+    }
+
+    throw new ObjectStorageUnavailableError();
+  } finally {
+    clearTimeout(timeout);
+    abortController.abort();
   }
 }
 
@@ -166,6 +342,7 @@ function isNotFoundError(error: unknown): boolean {
   return (
     candidate.name === 'NotFound' ||
     candidate.name === 'NoSuchKey' ||
+    candidate.name === 'NoSuchVersion' ||
     candidate.$metadata?.httpStatusCode === 404
   );
 }

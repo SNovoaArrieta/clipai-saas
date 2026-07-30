@@ -1,4 +1,8 @@
-import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -69,6 +73,7 @@ describe('S3ObjectStorage', () => {
       ContentLength: 1_024,
       ContentType: ' Video/MP4 ',
       ETag: ' "opaque-etag" ',
+      VersionId: 'opaque-version-1',
       Metadata: {
         'upload-intent-id': '0144e07d-7f4b-4c3d-82df-6ad1d9fd3188',
         Extra: ' value ',
@@ -92,6 +97,7 @@ describe('S3ObjectStorage', () => {
       sizeBytes: 1_024,
       contentType: 'video/mp4',
       etag: '"opaque-etag"',
+      storageRevision: 'opaque-version-1',
       metadata: {
         'upload-intent-id': '0144e07d-7f4b-4c3d-82df-6ad1d9fd3188',
         extra: 'value',
@@ -116,11 +122,13 @@ describe('S3ObjectStorage', () => {
     vi.spyOn(S3Client.prototype, 'send')
       .mockResolvedValueOnce({
         ContentType: 'video/mp4',
+        VersionId: 'opaque-version-1',
         Metadata: {},
       } as never)
       .mockResolvedValueOnce({
         ContentLength: 1_024,
         ContentType: 'video/mp4',
+        VersionId: 'opaque-version-1',
         Metadata: {
           'upload-intent-id': 'first',
           'Upload-Intent-Id': 'ambiguous',
@@ -151,5 +159,137 @@ describe('S3ObjectStorage', () => {
         objectKey: 'uploads/private/unavailable.mp4',
       }),
     ).rejects.toBeInstanceOf(ObjectStorageUnavailableError);
+  });
+
+  it('requires a provider revision before confirmation can complete', async () => {
+    vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({
+      ContentLength: 1_024,
+      ContentType: 'video/mp4',
+      Metadata: {},
+    } as never);
+
+    await expect(
+      new S3ObjectStorage(config).inspectUploadedObject({
+        objectKey: 'uploads/private/unversioned.mp4',
+      }),
+    ).rejects.toBeInstanceOf(ObjectStorageUnavailableError);
+  });
+
+  it('reads only the confirmed immutable revision with a bounded range', async () => {
+    const body = (async function* () {
+      yield new Uint8Array([1, 2]);
+      yield new Uint8Array([3, 4]);
+    })();
+    const send = vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({
+      ContentLength: 4,
+      VersionId: 'opaque-version-1',
+      Body: body,
+    } as never);
+    const storage = new S3ObjectStorage(config);
+
+    const confirmed = await storage.readConfirmedObject({
+      objectKey: 'uploads/private/media.mp4',
+      storageRevision: 'opaque-version-1',
+      expectedSizeBytes: 4,
+      maximumSizeBytes: 10,
+      timeoutMilliseconds: 5_000,
+    });
+    const chunks: number[] = [];
+    for await (const chunk of confirmed.body) {
+      chunks.push(...chunk);
+    }
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(GetObjectCommand);
+    expect((command as GetObjectCommand).input).toEqual({
+      Bucket: 'private-test-bucket',
+      Key: 'uploads/private/media.mp4',
+      VersionId: 'opaque-version-1',
+      Range: 'bytes=0-3',
+    });
+    expect(confirmed.sizeBytes).toBe(4);
+    expect(chunks).toEqual([1, 2, 3, 4]);
+  });
+
+  it('distinguishes an absent confirmed revision from storage unavailability', async () => {
+    vi.spyOn(S3Client.prototype, 'send')
+      .mockRejectedValueOnce({
+        name: 'NoSuchVersion',
+        $metadata: { httpStatusCode: 404 },
+      })
+      .mockRejectedValueOnce({
+        name: 'ServiceUnavailable',
+        $metadata: { httpStatusCode: 503 },
+      });
+    const storage = new S3ObjectStorage(config);
+    const input = {
+      objectKey: 'uploads/private/media.mp4',
+      storageRevision: 'opaque-version-1',
+      expectedSizeBytes: 4,
+      maximumSizeBytes: 10,
+      timeoutMilliseconds: 5_000,
+    };
+
+    await expect(storage.readConfirmedObject(input)).rejects.toBeInstanceOf(
+      ObjectStorageNotFoundError,
+    );
+    await expect(storage.readConfirmedObject(input)).rejects.toBeInstanceOf(
+      ObjectStorageUnavailableError,
+    );
+  });
+
+  it('rejects a provider response for a different revision as metadata mismatch', async () => {
+    vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({
+      ContentLength: 4,
+      VersionId: 'different-provider-version',
+      Body: (async function* () {
+        yield new Uint8Array([1, 2, 3, 4]);
+      })(),
+    } as never);
+
+    await expect(
+      new S3ObjectStorage(config).readConfirmedObject({
+        objectKey: 'uploads/private/media.mp4',
+        storageRevision: 'opaque-version-1',
+        expectedSizeBytes: 4,
+        maximumSizeBytes: 10,
+        timeoutMilliseconds: 5_000,
+      }),
+    ).rejects.toBeInstanceOf(ObjectStorageMetadataError);
+  });
+
+  it('rejects truncated streams and requests above the caller limit', async () => {
+    const body = (async function* () {
+      yield new Uint8Array([1, 2]);
+    })();
+    vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({
+      ContentLength: 4,
+      VersionId: 'opaque-version-1',
+      Body: body,
+    } as never);
+    const storage = new S3ObjectStorage(config);
+    const confirmed = await storage.readConfirmedObject({
+      objectKey: 'uploads/private/media.mp4',
+      storageRevision: 'opaque-version-1',
+      expectedSizeBytes: 4,
+      maximumSizeBytes: 4,
+      timeoutMilliseconds: 5_000,
+    });
+
+    await expect(async () => {
+      for await (const chunk of confirmed.body) {
+        // Consume the complete provider stream to trigger final size validation.
+        void chunk;
+      }
+    }).rejects.toBeInstanceOf(ObjectStorageUnavailableError);
+    await expect(
+      storage.readConfirmedObject({
+        objectKey: 'uploads/private/media.mp4',
+        storageRevision: 'opaque-version-1',
+        expectedSizeBytes: 5,
+        maximumSizeBytes: 4,
+        timeoutMilliseconds: 5_000,
+      }),
+    ).rejects.toBeInstanceOf(ObjectStorageMetadataError);
   });
 });
