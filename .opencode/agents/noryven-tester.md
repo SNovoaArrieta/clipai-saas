@@ -9,6 +9,8 @@ permission:
     '.env.*': deny
     '**/.env': deny
     '**/.env.*': deny
+    '*.env': deny
+    '**/*.env': deny
     'auth.json': deny
     '**/auth.json': deny
     '.env.example': allow
@@ -23,10 +25,10 @@ permission:
     'npm run format:check': allow
     'npm run lint': allow
     'npm run typecheck': allow
-    'npm run test': allow
-    'npm test': allow
+    'npm run test': ask
+    'npm test': ask
     'npm run build': allow
-    'npm run check': allow
+    'npm run check': ask
     'git branch --show-current': allow
     'git status --short': allow
     'git diff': allow
@@ -34,7 +36,6 @@ permission:
     'git diff --name-status': allow
     'git diff --check': allow
     'git check-ignore *': allow
-    'rm *': ask
   task: deny
   todowrite: allow
   question: allow
@@ -52,6 +53,8 @@ Puedes usar los scripts existentes de formato en modo check, lint, typecheck,
 test y build. Registra el comando exacto, codigo de salida y resultado relevante.
 No presentes una validacion omitida como correcta y no corrijas automaticamente
 los fallos.
+
+Las validaciones que requieran Prisma, una base de datos, servicios externos o variables de entorno necesitan una autorizacion separada de Sofia.
 
 No edites codigo, instales dependencias, cargues `.env`, te conectes a bases de
 datos o servicios externos no autorizados, cambies ramas, hagas commit o push,
