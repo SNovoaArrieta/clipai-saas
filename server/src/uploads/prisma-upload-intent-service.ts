@@ -251,36 +251,21 @@ export class PrismaUploadIntentService implements UploadIntentService {
     input: ConfirmUploadIntentInput,
     objectStorage: ObjectStorage,
   ): Promise<ConfirmUploadIntentResult> {
-    const upload = await this.findForConfirmation(input);
-    this.assertConfirmationProjectIsActive(upload);
-
-    if (upload.completedAt !== null) {
-      return this.toConfirmationResult(upload, true);
-    }
-
-    this.assertPendingSourceCanBeConfirmed(upload);
-
-    let metadata: UploadedObjectMetadata;
-    try {
-      metadata = await objectStorage.inspectUploadedObject({
-        objectKey: upload.objectKey,
-      });
-    } catch (error: unknown) {
-      if (error instanceof ObjectStorageNotFoundError) {
-        throw new UploadNotCompletedError();
-      }
-
-      if (error instanceof ObjectStorageMetadataError) {
-        throw new UploadMetadataMismatchError();
-      }
-
-      throw error;
-    }
-
-    const observation = verifyUploadedObject(upload, metadata);
-
     try {
       return await this.prisma.$transaction(async (transaction) => {
+        const lockedUploads = await transaction.$queryRaw<{ id: string }[]>`
+          SELECT "id"
+          FROM "UploadIntent"
+          WHERE "id" = ${input.uploadHandle}::uuid
+            AND "workspaceId" = ${input.workspaceId}::uuid
+            AND "projectId" = ${input.projectId}::uuid
+          FOR UPDATE
+        `;
+
+        if (lockedUploads[0] === undefined) {
+          throw new UploadIntentNotFoundError();
+        }
+
         const current = await transaction.uploadIntent.findFirst({
           where: {
             id: input.uploadHandle,
@@ -291,48 +276,35 @@ export class PrismaUploadIntentService implements UploadIntentService {
         });
 
         if (current === null) {
-          throw new UploadIntentNotFoundError();
+          throw new UploadPersistenceError('internal');
         }
 
         this.assertConfirmationProjectIsActive(current);
+
         if (current.completedAt !== null) {
           return this.toConfirmationResult(current, true);
         }
 
         this.assertPendingSourceCanBeConfirmed(current);
 
-        const completedAt = new Date();
-        const claimed = await transaction.uploadIntent.updateMany({
-          where: {
-            id: current.id,
-            workspaceId: input.workspaceId,
-            projectId: input.projectId,
-            completedAt: null,
-          },
-          data: {
-            observedSizeBytes: observation.sizeBytes,
-            observedContentType: observation.contentType,
-            storageEtag: observation.etag,
-            completedAt,
-          },
-        });
-
-        if (claimed.count === 0) {
-          const replayed = await transaction.uploadIntent.findFirst({
-            where: {
-              id: input.uploadHandle,
-              workspaceId: input.workspaceId,
-              projectId: input.projectId,
-            },
-            select: persistedUploadSelection,
+        let metadata: UploadedObjectMetadata;
+        try {
+          metadata = await objectStorage.inspectUploadedObject({
+            objectKey: current.objectKey,
           });
-
-          if (replayed === null) {
-            throw new UploadIntentNotFoundError();
+        } catch (error: unknown) {
+          if (error instanceof ObjectStorageNotFoundError) {
+            throw new UploadNotCompletedError();
           }
 
-          return this.toConfirmationResult(replayed, true);
+          if (error instanceof ObjectStorageMetadataError) {
+            throw new UploadMetadataMismatchError();
+          }
+
+          throw error;
         }
+
+        const observation = verifyUploadedObject(current, metadata);
 
         const advanced = await transaction.source.updateMany({
           where: {
@@ -350,6 +322,16 @@ export class PrismaUploadIntentService implements UploadIntentService {
         if (advanced.count !== 1) {
           throw new UploadPersistenceError('internal');
         }
+
+        await transaction.uploadIntent.update({
+          where: { id: current.id },
+          data: {
+            observedSizeBytes: observation.sizeBytes,
+            observedContentType: observation.contentType,
+            storageEtag: observation.etag,
+            completedAt: new Date(),
+          },
+        });
 
         const confirmed = await transaction.uploadIntent.findFirst({
           where: {
@@ -370,6 +352,8 @@ export class PrismaUploadIntentService implements UploadIntentService {
       if (
         error instanceof UploadIntentNotFoundError ||
         error instanceof UploadProjectArchivedError ||
+        error instanceof UploadMetadataMismatchError ||
+        error instanceof UploadNotCompletedError ||
         error instanceof UploadPersistenceError
       ) {
         throw error;
@@ -474,33 +458,6 @@ export class PrismaUploadIntentService implements UploadIntentService {
       sizeBytes,
       expiresAt: new Date(Date.now() + UPLOAD_TARGET_TTL_MILLISECONDS),
     });
-  }
-
-  private async findForConfirmation(
-    input: ConfirmUploadIntentInput,
-  ): Promise<PersistedUpload> {
-    try {
-      const upload = await this.prisma.uploadIntent.findFirst({
-        where: {
-          id: input.uploadHandle,
-          workspaceId: input.workspaceId,
-          projectId: input.projectId,
-        },
-        select: persistedUploadSelection,
-      });
-
-      if (upload === null) {
-        throw new UploadIntentNotFoundError();
-      }
-
-      return upload;
-    } catch (error: unknown) {
-      if (error instanceof UploadIntentNotFoundError) {
-        throw error;
-      }
-
-      throw toPersistenceError(error);
-    }
   }
 
   private assertConfirmationProjectIsActive(upload: PersistedUpload): void {
