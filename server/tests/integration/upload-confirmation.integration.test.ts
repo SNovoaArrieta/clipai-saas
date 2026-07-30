@@ -59,9 +59,7 @@ class ControlledObjectStorage implements ObjectStorage {
   public readonly targets = new Map<string, CreateUploadTargetInput>();
   public inspectCount = 0;
   public missing = false;
-  public beforeInspect:
-    | ((sequence: number) => Promise<void>)
-    | undefined;
+  public beforeInspect: ((sequence: number) => Promise<void>) | undefined;
   public metadataOverride:
     | Partial<UploadedObjectMetadata>
     | ((
@@ -390,9 +388,9 @@ describeWithPostgres('PostgreSQL uploaded object confirmation', () => {
     expect(new Set(results.map((result) => result.source.id))).toEqual(
       new Set([fixture.created.source.id]),
     );
-    expect(new Set(results.map((result) => result.upload.completedAt)).size).toBe(
-      1,
-    );
+    expect(
+      new Set(results.map((result) => result.upload.completedAt)).size,
+    ).toBe(1);
     expect(new Set(results.map((result) => result.upload.sizeBytes))).toEqual(
       new Set([4_096]),
     );
